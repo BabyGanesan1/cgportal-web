@@ -1,0 +1,254 @@
+
+/*
+────────────────────────────────────────────────────────────
+📊 PROPERTY PRICE CALCULATION FORMULAS (ALL VALUES IN LAKHS)
+────────────────────────────────────────────────────────────
+
+1️⃣ BASIC PRICE
+
+Formula:
+Basic Price =
+((Super Built-up Area × (Basic Rate per Sqft + PLC Charges per Sqft + FRC Charges per Sqft)) / 100000)
++ Private Terrace (in Lakhs)
++ Car Park Charges (in Lakhs)
+
+Code:
+const basic =
+((super_builtup_area * (basic_rate_per_sqft + plc_charges_per_sqft + frc_charges_per_sqft)) / 100000)
++ private_terrace
++ car_park_charges;
+
+
+────────────────────────────────────────────────────────────
+
+2️⃣ NEXT WEEK BASIC PRICE
+
+Formula:
+Next Week Basic Price =
+((Super Built-up Area × (Next Week Rate per Sqft + PLC Charges per Sqft + FRC Charges per Sqft)) / 100000)
++ Private Terrace
++ Car Park Charges
+
+Code:
+const next_week_basic =
+((super_builtup_area * (next_week_rate_per_sqft + plc_charges_per_sqft + frc_charges_per_sqft)) / 100000)
++ private_terrace
++ car_park_charges;
+
+
+────────────────────────────────────────────────────────────
+
+3️⃣ TOTAL COST (BEFORE DISCOUNT & GST)
+
+Formula:
+Total Cost =
+Basic Price
++ Infra Charges
++ Other Charges
++ Modification Charges
+
+Code:
+const total_cost =
+basic
++ infra_charges
++ other_charges
++ modification;
+
+
+────────────────────────────────────────────────────────────
+
+4️⃣ GST (5%)
+
+Formula:
+GST =
+(Total Cost − Discount) × 5%
+
+Code:
+const gst =
+(total_cost - discount) * 0.05;
+
+
+────────────────────────────────────────────────────────────
+
+5️⃣ GRAND TOTAL (FINAL PAYABLE AMOUNT)
+
+Formula:
+Grand Total =
+Total Cost − Discount + GST
+
+Code:
+const grand_total =
+total_cost - discount + gst;
+
+
+────────────────────────────────────────────────────────────
+
+6️⃣ 90% NET VALUE (FOR LOAN / PAYMENT PURPOSE)
+
+Formula:
+90% Net Value =
+Total Cost × 90%
+
+Code:
+const net_90_percent =
+total_cost * 0.9;
+
+
+────────────────────────────────────────────────────────────
+
+📌 NOTES:
+- All monetary values are in LAKHS (₹L)
+- Division by 100000 converts ₹ to Lakhs
+- GST is calculated AFTER discount
+- Terrace and Car Park values are already in Lakhs
+- Ensure no negative values for discount
+────────────────────────────────────────────────────────────
+*/
+
+
+
+
+
+1. Basic Price Calculation
+const basic = ((sba * (bRate + plc + frc)) / 100000) + terrace + cpCharges;
+✅ Meaning:
+
+sba → Super Built-up Area (sqft)
+
+bRate → Basic rate per sqft
+
+plc → PLC charges per sqft
+
+frc → FRC charges per sqft
+
+💡 Formula:
+
+👉 (Area × (Rate + PLC + FRC)) / 100000
+
+Dividing by 100000 converts ₹ → Lakhs
+
+Then add:
+
+Private terrace (in Lakhs)
+
+Car park charges (in Lakhs)
+
+🧮 2. Next Week Basic Price
+const nwBasic = ((sba * (nwRate + plc + frc)) / 100000) + terrace + cpCharges;
+
+Same as basic, but:
+
+Uses next week rate (nwRate) instead of current rate
+
+👉 Helps show future pricing impact
+
+🧮 3. Total Cost
+const total = basic + infra + other + mod;
+Includes:
+
+Basic price
+
+Infra charges
+
+Other charges
+
+Modification charges
+
+👉 This is total before discount & GST
+
+🧮 4. GST Calculation (5%)
+const gst = (total - discount) * 0.05;
+Important:
+
+GST is applied after discount
+
+👉 Formula:
+
+GST = (Total - Discount) × 5%
+🧮 5. Grand Total (Final Price)
+const grand = total - discount + gst;
+Final amount customer pays:
+Grand Total = Total - Discount + GST
+🧮 6. 90% Net Value
+const net90 = (total * 0.9);
+
+👉 Calculates:
+
+90% of total value
+Use case:
+
+Bank loan eligibility
+
+Payment plans (like 90% funding)
+
+🔥 Full Flow (Simple Understanding)
+Step-by-step:
+
+Calculate price per sqft × area
+
+Convert to Lakhs
+
+Add:
+
+Terrace
+
+Car park
+
+Add extra charges:
+
+Infra
+
+Other
+
+Modification
+
+Subtract discount
+
+Add GST (5%)
+
+Get final payable amount
+
+📊 Example
+
+Let’s say:
+
+SBA = 1000 sqft
+
+Rate = ₹5000
+
+PLC + FRC = ₹500
+
+Terrace = 2L
+
+Car park = 3L
+
+Step 1:
+(1000 × 5500) / 100000 = 55L
+Step 2:
+Basic = 55 + 2 + 3 = 60L
+Step 3:
+Total = 60 + infra + other + mod
+Step 4:
+GST = (Total - discount) × 5%
+⚠️ Important Notes
+
+All values are in Lakhs (₹L) after conversion
+
+Discount reduces GST → good for customer
+
+parseFloat(v) || 0 ensures no NaN errors
+
+Live calculation updates instantly via watch()
+
+🚀 Suggestion (Improvement)
+
+You may want to:
+
+Round values using Number() instead of toFixed() for accuracy in backend
+
+Validate negative values (like discount > total)
+
+If you want, I can:
+✅ Convert this into Excel formula version
+✅ Or create backend API calculation (FastAPI)
+✅ Or show UI with breakdown (like invoice view)
