@@ -15,6 +15,17 @@ export default function Home() {
     const admin = getAdmin();
 
     if (admin?.role === 'admin') {
+      // FLS department users go directly to their portal — no main dashboard
+      const flsDeptMap: Record<string, string> = {
+        'FLS-Booking': '/fls-booking-portal/booking',
+        'FLS-Checking': '/fls-booking-portal/checking',
+        'FLS-Source': '/fls-booking-portal/source',
+      };
+      if (admin.department && flsDeptMap[admin.department]) {
+        router.replace(flsDeptMap[admin.department]);
+        return;
+      }
+
       if (admin.owner === false && admin.zonal) {
         router.replace(`/${admin.zonal}/dashboard`);
       } else {
