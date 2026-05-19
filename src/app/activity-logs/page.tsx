@@ -162,6 +162,7 @@ export default function ActivityLogsPage() {
                       { value: 'SEND_COST_SHEET_EMAIL', label: 'Send Cost Sheet Email' },
                       { value: 'REQUEST_COST_SHEET_DOWNLOAD', label: 'Request Cost Sheet Download' },
                       { value: 'REQUEST_COST_SHEET_EMAIL', label: 'Request Cost Sheet Email' },
+                      { value: 'UNIT_BOOKING', label: 'Unit Booking' },
                     ]}
                   />
                 </div>

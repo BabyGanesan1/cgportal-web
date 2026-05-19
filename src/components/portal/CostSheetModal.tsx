@@ -53,9 +53,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
         .then((res: any) => setSchedules(res.data.data || []))
         .catch((err: any) => console.error('Failed to load schedules', err));
 
-      // Derive block from the first character of unit_no.
-      // If it is a letter (e.g. "B" from "B101") → filter handover by that block.
-      // If unit_no starts with a digit → query by project_id only.
       const firstChar = unit.unit_no ? unit.unit_no.charAt(0).toUpperCase() : '';
       const blockFromUnit = /^[A-Z]$/.test(firstChar) ? firstChar : null;
       const handoverParams: any = { project_id: property.id, limit: 1 };
@@ -84,13 +81,9 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
 
   if (!isOpen || !unit) return null;
 
-  // const fmt = formatCurrency;
-
   const isDubai = property?.cityData?.name?.toLowerCase() === 'dubai';
-  // Dubai: grand_total in DB is in Millions AED → multiply × 1,000,000 for the raw AED value
   const dubaiGrandAED = isDubai ? Math.round((parseFloat(unit?.grand_total) || 0) * 1_000_000) : 0;
 
-  // Safe currency formatter that takes raw rupees (INR) or AED for Dubai projects
   const fmt = (val: number): string => {
     if (!val || isNaN(val)) return isDubai ? 'AED 0' : '₹0';
     const abs = Math.abs(Math.round(val));
@@ -117,8 +110,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
   const formatDateDMY = (dateStr: string | null | undefined): string => {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    console.log(d, "DDDDD");
-
     if (isNaN(d.getTime())) return String(dateStr);
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const day = String(d.getDate()).padStart(2, '0');
@@ -133,21 +124,8 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
     return isNaN(n) ? String(val) : String(Math.round(n));
   };
 
-  // ── All monetary values are stored in Lakhs in the DB ──────────────────────
-  // Per-sqft rates (this_week_price, plc_charges_per_sqft, frc_charges_per_sqft)
-  // are actual per-sqft numbers (e.g. 7349, 200, 175).
-  // Totals (grand_total, gst, total_values, infra_charges, other_charges)
-  // are stored in Lakhs (e.g. 163.52 means ₹1,63,52,000).
-  // formatCurrency expects raw rupees, so multiply Lakh values by 1,00,000.
-
-  // Calculated amounts in raw rupees for display
   const L = 100000;
-
-  // Basic = (this_week_price × super_builtup_area) + ((this_week_price/2) × private_terrace) + car_park_charges
-  // For Villa projects: also add (land_rate_sqft × land_area_sqft)
-  // For SELENIA project: also add 10 Lakhs (₹10,00,000)
   const isVilla = (property?.product_type || '').toLowerCase() === 'villa';
-  console.log(isVilla, "isVilla")
   const basicRaw = (
     (parseFloat(unit.this_week_price) || 0) * (parseFloat(unit.super_builtup_area) || 0)
   ) + (
@@ -163,22 +141,9 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
   const infraRaw = (parseFloat(unit.infra_charges) || 0) * L;
   const otherRaw = (parseFloat(unit.other_charges) || 0) * L;
   const anyOtherRaw = (parseFloat(unit.any_other_charges) || 0) * L;
-
-  // Total before GST
   const totalRaw = basicRaw + plcRaw + frcRaw + infraRaw + otherRaw;
-
-  // GST 5%
-  // const gstRaw = totalRaw * 0.05;
-  // const gstRate = parseFloat(unit.gst) || 0;
-  // const gstRaw = totalRaw * gstRate / 100;
-
   const gstRaw = (parseFloat(unit.gst) || 0) * L;
-
-
-  // Modification in Lakhs → raw
   const modificationRaw = (parseFloat(unit.modification) || 0) * L;
-
-  // Grand Total = Total + GST + Modification
   const grandRaw = totalRaw + gstRaw + modificationRaw + anyOtherRaw;
 
   const handleClose = () => {
@@ -186,7 +151,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
     else onClose();
   };
 
-  // ── Download PDF ──────────────────────────────────────────────────────────
   const handleDownloadPDF = async () => {
     if (!pdfContentRef.current) return;
     setIsGenerating(true);
@@ -203,7 +167,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
       } else { pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight); }
       pdf.save(`${property?.project_name}_${unit.unit_no}_Cost_Sheet.pdf`);
 
-      // Track for Live Activity Dashboard
       api.post('/portal/log-cost-sheet-download', {
         project_name: property?.project_name,
         unit_no: unit.unit_no,
@@ -213,7 +176,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
     finally { setIsGenerating(false); }
   };
 
-  // ── Send Email ────────────────────────────────────────────────────────────
   const handleSendEmail = async () => {
     if (!emailInput.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)) {
       setEmailError('Please enter a valid email address.'); return;
@@ -254,10 +216,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
     }
   };
 
-
-
-
-  // ── Mobile Row component ──────────────────────────────────────────────────
   const MRow = ({ label, value, bold, gold, dark }: { label: string; value: string; bold?: boolean; gold?: boolean; dark?: boolean }) => (
     dark ? (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', background: '#0a1628' }}>
@@ -279,10 +237,8 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
     </div>
   );
 
-  // ── Mobile view ───────────────────────────────────────────────────────────
   const MobileView = () => (
     <div style={{ flex: 1, overflowY: 'auto' }}>
-      {/* Hero unit summary card */}
       <div style={{ margin: '16px 16px 8px', borderRadius: 16, background: 'linear-gradient(135deg, #0a1628 0%, #1e3a5f 100%)', padding: '20px', boxShadow: '0 8px 24px rgba(10,22,40,0.2)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(245,158,11,0.1)' }} />
         <div style={{ position: 'absolute', right: 20, bottom: -30, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
@@ -301,12 +257,10 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
         </div>
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 1 }}>Total Cost</span>
-          {/* grandRaw is already in rupees */}
           <span style={{ fontSize: 20, fontWeight: 900, color: '#f59e0b' }}>{fmt(grandRaw)}</span>
         </div>
       </div>
 
-      {/* Area Details */}
       <div style={{ margin: '8px 16px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <MSectionHeader title="Area Details" />
         <div style={{ background: '#fff', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
@@ -341,7 +295,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
         </div>
       </div>
 
-      {/* Cost Break Up — using pre-computed raw rupee values */}
       <div style={{ margin: '8px 16px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <MSectionHeader title="Cost Break Up" />
         {isDubai ? (
@@ -364,7 +317,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
         )}
       </div>
 
-      {/* Payment Schedule */}
       <div style={{ margin: '8px 16px 16px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <MSectionHeader title="Payment Schedule" />
         {schedules.length > 0 ? schedules.map((item, idx) => {
@@ -390,11 +342,9 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
     </div>
   );
 
-  // ── Desktop view ──────────────────────────────────────────────────────────
   const DesktopView = () => (
     <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#f9fafb' }}>
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 32, display: 'flex', flexDirection: 'column', gap: 28 }}>
-        {/* Unit Details */}
         <div className="overflow-x-auto rounded-xl border border-brand-200">
           <div className="bg-[#102a43] text-white text-center py-2 text-xs font-bold uppercase tracking-widest">UNIT DETAILS</div>
           <table className="w-full min-w-[520px] text-sm text-center">
@@ -415,7 +365,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
           </table>
         </div>
 
-        {/* Area Details */}
         <div className="overflow-x-auto rounded-xl border border-brand-200">
           <div className="bg-[#102a43] text-white text-center py-2 text-xs font-bold uppercase tracking-widest">AREA DETAILS</div>
           {isDubai ? (
@@ -448,14 +397,12 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
           )}
         </div>
 
-        {/* Cost Break Up — using pre-computed raw rupee values */}
         <div className="overflow-x-auto rounded-xl border border-brand-200">
           <div className="bg-[#102a43] text-white text-center py-2 text-xs font-bold uppercase tracking-widest">COST - BREAK UP</div>
           <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-brand-50/50 text-[#102a43] text-[10px] font-bold uppercase tracking-wider text-right">
               <tr>
                 <th className="px-6 py-3 border-b border-r border-brand-100 text-left">Description</th>
-                {/* <th className="px-6 py-3 border-b border-r border-brand-100">Per Sft. Rate</th> */}
                 <th className="px-6 py-3 border-b border-brand-100">Amount</th>
               </tr>
             </thead>
@@ -517,7 +464,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
           </table>
         </div>
 
-        {/* Payment Schedule */}
         <div className="overflow-x-auto rounded-xl border border-brand-200">
           <div className="bg-[#102a43] text-white text-center py-2 text-xs font-bold uppercase tracking-widest">PAYMENT SCHEDULE</div>
           <table className="w-full min-w-[480px] text-sm">
@@ -555,7 +501,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
 
   return (
     <>
-      {/* ── UI MODAL ── */}
       <div
         onClick={e => { if (e.target === e.currentTarget && !showEmailPopup) handleClose(); }}
         style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : 24, paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : 0, background: 'rgba(10,22,40,0.65)', backdropFilter: 'blur(6px)' }}
@@ -567,7 +512,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           boxShadow: '0 32px 64px rgba(0,0,0,0.3)'
         }}>
-          {/* Header */}
           <div style={{ background: 'linear-gradient(135deg, #0a1628 0%, #1e3a5f 100%)', padding: isMobile ? '14px 16px' : '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
             {isMobile && <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.25)', margin: '0 auto 12px' }} />}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -588,10 +532,20 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             </div>
           </div>
 
-          {/* Content */}
+          {unit && (unit.status?.toLowerCase().includes('sold') || unit.status?.toLowerCase().includes('booked')) && (
+            <div style={{ background: '#fef2f2', borderBottom: '1px solid #fee2e2', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <X size={16} color="#fff" />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#991b1b' }}>Unit Already Booked</div>
+                <div style={{ fontSize: 11, color: '#b91c1c' }}>This unit was recently booked. You can still view the price sheet, but it is no longer available for new bookings.</div>
+              </div>
+            </div>
+          )}
+
           {isMobile ? <MobileView /> : <DesktopView />}
 
-          {/* Action Buttons */}
           <div style={{ padding: '14px 16px', borderTop: '1px solid #f1f5f9', background: '#fff', flexShrink: 0, display: 'flex', gap: 10 }}>
             <button
               onClick={() => { setShowEmailPopup(true); setEmailStatus('idle'); setEmailInput(''); setEmailError(''); }}
@@ -610,7 +564,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
         </div>
       </div>
 
-      {/* ── EMAIL POPUP ── */}
       {showEmailPopup && (
         <div
           onClick={e => { if (e.target === e.currentTarget) { setShowEmailPopup(false); setEmailStatus('idle'); } }}
@@ -685,9 +638,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
         </div>
       )}
 
-      {/* ── OFF-SCREEN PDF ── */}
       <div ref={pdfContentRef} data-pdf-root="true" style={{ position: 'absolute', top: -9999, left: -9999, width: 1000, background: '#fff', color: '#000', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        {/* Force vertical-align middle for all table cells in the PDF snapshot */}
         <style dangerouslySetInnerHTML={{ __html: `[data-pdf-root] td { height: 1px; } [data-pdf-root] td, [data-pdf-root] th { vertical-align: middle !important; }` }} />
         <div style={{ padding: '40px 50px' }}>
           <div style={{ position: 'relative', marginBottom: 12 }}>
@@ -702,7 +653,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             </div>
           </div>
 
-          {/* Unit Details */}
           <div style={{ border: '1px solid #9ca3af', borderRadius: 8, overflow: 'hidden', marginBottom: 16, marginTop: 24 }}>
             <div style={{ background: '#f8c471', textAlign: 'center', padding: '8px 0 14px 0', fontSize: 12, fontWeight: 700, color: '#000' }}>UNIT DETAILS</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: 11 }}>
@@ -727,7 +677,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             </table>
           </div>
 
-          {/* Area Details */}
           <div style={{ border: '1px solid #9ca3af', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
             <div style={{ background: '#f8c471', textAlign: 'center', padding: '8px 0 14px 0', fontSize: 12, fontWeight: 700, color: '#000' }}>AREA DETAILS</div>
             {isDubai ? (
@@ -769,11 +718,8 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             )}
           </div>
 
-          {/* 2-Column Section */}
           <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-            {/* Left Column */}
             <div style={{ flex: '0 0 47%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Cost Break Up */}
               <div style={{ border: '1px solid #9ca3af', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{ background: '#f8c471', textAlign: 'center', padding: '8px 0 14px 0', fontSize: 12, fontWeight: 700, color: '#000' }}>COST - BREAK UP</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -828,7 +774,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
                 </table>
               </div>
 
-              {/* Spirit & Handover Date */}
               <div style={{ border: '1px solid #9ca3af', borderRadius: 8, padding: 14 }}>
                 <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
                   <div style={{ flex: 1, textAlign: 'center' }}>
@@ -849,15 +794,12 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
                 </div>
               </div>
 
-              {/* RERA */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 800 }}>RERA No :</div>
                 <div style={{ background: '#e5e7eb', padding: '10px 16px', borderRadius: 6, fontSize: 12, flex: 1, color: '#4b5563' }}>{property?.rera_registration_no || 'TN/35/Building/0053/2024'}</div>
               </div>
-
             </div>
 
-            {/* Right Column: Payment Schedule */}
             <div style={{ flex: '1', display: 'flex', alignSelf: 'flex-start' }}>
               <div style={{ border: '1px solid #9ca3af', borderRadius: 8, width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{ background: '#f8c471', textAlign: 'center', padding: '8px 0 14px 0', fontSize: 12, fontWeight: 700, color: '#000', borderRadius: '8px 8px 0 0' }}>PAYMENT SCHEDULE</div>
@@ -892,7 +834,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             </div>
           </div>
 
-          {/* Bank Details - Full Width */}
           <div style={{ border: '1px solid #9ca3af', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
               <thead style={{ background: '#e5e7eb' }}>
@@ -916,7 +857,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             </table>
           </div>
 
-          {/* Terms & Conditions */}
           <div style={{ marginTop: 24 }}>
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8, textDecoration: 'underline' }}>Terms &amp; Conditions</div>
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#374151', lineHeight: 1.7 }}>
@@ -930,7 +870,6 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             </ul>
           </div>
 
-          {/* Signatures */}
           <div style={{ marginTop: 50, display: 'flex', justifyContent: 'space-between', padding: '0 60px' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ borderTop: '2px dashed #000', width: 220, paddingTop: 8 }}>
