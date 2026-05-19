@@ -1,11 +1,15 @@
 'use client';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Search, MapPin, RefreshCw, ChevronRight, Building2, Home, ChevronLeft, ChevronRight as ChevronRightIcon, Filter, X } from 'lucide-react';
+import { Search, MapPin, RefreshCw, ChevronRight, Building2, Home, ChevronLeft, ChevronRight as ChevronRightIcon, Filter, X, Video, CalendarCheck, BookOpen } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import AppLayout from '../../../components/layout/AppLayout';
-import UnitsModal from '../../../components/portal/UnitsModal';
+import BookingUnitsModal from '../../../components/portal/BookingUnitsModal';
 import CostSheetModal from '../../../components/portal/CostSheetModal';
+import BookNowModal from '../../../components/portal/BookNowModal';
+import VirtualTourModal from '../../../components/portal/VirtualTourModal';
+import SiteVisitModal from '../../../components/portal/SiteVisitModal';
 
 // ── Searchable single-select ──────────────────────────────────────────────────
 function SearchableDropdown({ options, value, onChange, placeholder, disabled }: {
@@ -124,86 +128,6 @@ function MultiSelectDropdown({ options, value, onChange, placeholder, disabled }
   );
 }
 
-// ── City Grid Card (Mobile only) ──────────────────────────────────────────────
-function CityGridCard({ city, isActive, counts, onClick }: {
-  city: { label: string; value: string };
-  isActive: boolean;
-  counts?: { total: number; available: number };
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="relative flex flex-col items-start p-4 rounded-2xl transition-all w-full text-left"
-      style={{
-        background: isActive
-          ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-          : '#ffffff',
-        border: `2px solid ${isActive ? '#f59e0b' : '#e2e8f0'}`,
-        boxShadow: isActive
-          ? '0 4px 16px rgba(245,158,11,0.35)'
-          : '0 1px 4px rgba(0,0,0,0.06)',
-      }}
-    >
-      {/* Icon */}
-      <div
-        className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
-        style={{ background: isActive ? 'rgba(255,255,255,0.25)' : '#f1f5f9' }}
-      >
-        <MapPin className="w-4 h-4" style={{ color: isActive ? '#fff' : '#f59e0b' }} />
-      </div>
-
-      <div className="font-black text-sm leading-tight" style={{ color: isActive ? '#fff' : '#1e293b' }}>
-        {city.label}
-      </div>
-
-      {counts ? (
-        <div className="mt-1.5 space-y-0.5 w-full">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: isActive ? 'rgba(255,255,255,0.75)' : '#59616c' }}>
-              Projects
-            </span>
-            <span className="text-xs font-black" style={{ color: isActive ? '#fff' : '#334155' }}>
-              {counts.total}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: isActive ? 'rgba(255,255,255,0.75)' : '#59616c' }}>
-              Available
-            </span>
-            <span
-              className="text-xs font-black px-1.5 py-0.5 rounded-full"
-              style={{
-                background: isActive ? 'rgba(255,255,255,0.25)' : '#f0fdf4',
-                color: isActive ? '#fff' : '#15803d',
-              }}
-            >
-              {counts.available}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-2 w-full space-y-1.5">
-          <div className="h-2 rounded-full animate-pulse" style={{ background: isActive ? 'rgba(255,255,255,0.3)' : '#e2e8f0', width: '70%' }} />
-          <div className="h-2 rounded-full animate-pulse" style={{ background: isActive ? 'rgba(255,255,255,0.2)' : '#e2e8f0', width: '50%' }} />
-        </div>
-      )}
-
-      {/* Active checkmark */}
-      {isActive && (
-        <div
-          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.3)' }}
-        >
-          <span style={{ fontSize: 10, color: '#fff', fontWeight: 900 }}>✓</span>
-        </div>
-      )}
-    </button>
-  );
-}
-
 // ── Skeletons ─────────────────────────────────────────────────────────────────
 const SkeletonPill = () => (
   <div className="h-8 w-16 bg-slate-100 rounded-xl animate-pulse" />
@@ -221,8 +145,10 @@ const SkeletonTab = () => (
   </div>
 );
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PropertyPortal() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtersLoading, setFiltersLoading] = useState(true);
@@ -234,7 +160,6 @@ export default function PropertyPortal() {
   const [productTypes, setProductTypes] = useState<{ label: string; value: string }[]>([]);
   const [cityCounts, setCityCounts] = useState<Record<string, { total: number; available: number }>>({});
   const [cityCountsReady, setCityCountsReady] = useState(false);
-  // Fixed global stats — never change when filters are applied
   const [globalStats, setGlobalStats] = useState<{ totalProjects: number; withUnits: number; totalCities: number } | null>(null);
 
   const [filterCityId, setFilterCityId] = useState<string | null>(null);
@@ -244,7 +169,6 @@ export default function PropertyPortal() {
   const [filterProductTypes, setFilterProductTypes] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  // Consolidate filter visibility state for both mobile and desktop
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -261,9 +185,12 @@ export default function PropertyPortal() {
   });
 
   const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null);
-  const [mobileCitySelected, setMobileCitySelected] = useState(false);
   const [isUnitsModalOpen, setIsUnitsModalOpen] = useState(false);
   const [isCostSheetModalOpen, setIsCostSheetModalOpen] = useState(false);
+  const [isBookNowModalOpen, setIsBookNowModalOpen] = useState(false);
+  const [isVirtualTourModalOpen, setIsVirtualTourModalOpen] = useState(false);
+  const [isSiteVisitModalOpen, setIsSiteVisitModalOpen] = useState(false);
+
   const mobileCityScrollRef = useRef<HTMLDivElement>(null);
   const desktopCityScrollRef = useRef<HTMLDivElement>(null);
   const possessionScrollRef = useRef<HTMLDivElement>(null);
@@ -271,18 +198,27 @@ export default function PropertyPortal() {
   const [cityScrollAtEnd, setCityScrollAtEnd] = useState(false);
   const [possScrollAtStart, setPossScrollAtStart] = useState(true);
   const [possScrollAtEnd, setPossScrollAtEnd] = useState(false);
+  
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [propertyUnits, setPropertyUnits] = useState<any[]>([]);
+  const [propertyAllUnits, setPropertyAllUnits] = useState<any[]>([]);
+  const [modalInitialView, setModalInitialView] = useState<'list' | 'grid'>('list');
+  const [unitViewers, setUnitViewers] = useState<Record<number, number>>({});
+  const [costSheetViewers, setCostSheetViewers] = useState<Record<number, number>>({});
+  const socketRef = useRef<any>(null);
 
   // ── WebSocket Real-time Updates ─────────────────────────────────────────────
   useEffect(() => {
+    // Connect to backend socket
     const socket = io('http://localhost:5000');
+    socketRef.current = socket;
 
     socket.on('unit_status_updated', (data: { unit_id: number; status: string; project_id: number }) => {
       console.log('Real-time unit update:', data);
+      const unitId = Number(data.unit_id);
 
-      // 1. Update project available counts
+      // 1. Update project available counts in the main list
       setProperties(prev => prev.map(p => {
         if (p.id === data.project_id && data.status.toLowerCase() === 'booked') {
           const currentCount = parseInt(p.available_units || 0);
@@ -291,49 +227,91 @@ export default function PropertyPortal() {
         return p;
       }));
 
-      // 2. If the modal for this project is open, update the available list
-      if (selectedProperty && selectedProperty.id === data.project_id) {
-        setPropertyUnits(prev => prev.filter(u => u.id !== data.unit_id));
-      }
+      // 2. If the modal for this project is open, update the unit status immediately
+      setPropertyAllUnits(prev => prev.map(u => 
+        u.id === unitId ? { ...u, status: data.status } : u
+      ));
+      
+      // Update the available-only list for the list view
+      setPropertyUnits(prev => prev.filter(u => u.id !== unitId));
 
-      // 3. Update global stats
+      // 3. Update selectedUnit if it matches the updated unit
+      setSelectedUnit(prev => (prev && prev.id === unitId) ? { ...prev, status: data.status } : prev);
+
+      // 4. Update global stats if needed
       if (data.status.toLowerCase() === 'booked') {
         setGlobalStats(prev => prev ? { ...prev, withUnits: Math.max(0, prev.withUnits - 1) } : null);
       }
     });
 
+    socket.on('unit_viewers_updated', (data: { unitId: any; count: number }) => {
+      const id = Number(data.unitId);
+      setUnitViewers(prev => ({ ...prev, [id]: data.count }));
+    });
+
+    socket.on('cost_sheet_viewers_updated', (data: { unitId: any; count: number }) => {
+      const id = Number(data.unitId);
+      setCostSheetViewers(prev => ({ ...prev, [id]: data.count }));
+    });
+
+    socket.on('initial_counts_data', (data: { unitCounts: Record<string, number>; costCounts: Record<string, number> }) => {
+      const uMap: Record<number, number> = {};
+      Object.entries(data.unitCounts || {}).forEach(([k, v]) => uMap[Number(k)] = v);
+      const cMap: Record<number, number> = {};
+      Object.entries(data.costCounts || {}).forEach(([k, v]) => cMap[Number(k)] = v);
+      
+      setUnitViewers(prev => ({ ...prev, ...uMap }));
+      setCostSheetViewers(prev => ({ ...prev, ...cMap }));
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [selectedProperty]);
+  }, []); // Only run once on mount
 
-  // Display labels shown in the filter UI (grouped to cover actual DB values)
-  const POSSESSION_ORDER = useMemo(
-    () =>
-      [
-        // 'Ready to Move',
-        'Less than 6 Months',
-        '6 to 12 Months',
-        '12 to 24 Months',
-        '24 to 36 Months',
-        'More than 36 Months'
-      ],
-    []
-  );
+  // Sync project room joining
+  useEffect(() => {
+    if (isUnitsModalOpen && selectedProperty && socketRef.current) {
+      socketRef.current.emit('join_project', selectedProperty.id);
+      
+      // Also request initial counts for all units in this project
+      if (propertyAllUnits && propertyAllUnits.length > 0) {
+        socketRef.current.emit('get_initial_counts', propertyAllUnits.map(u => u.id));
+      }
+    }
+  }, [isUnitsModalOpen, selectedProperty?.id, propertyAllUnits.length]);
 
-  // Maps each display label → actual DB possession_status values it covers.
-  // Handles both "Month" (singular) and "Months" (plural) DB variants.
-  const POSSESSION_GROUP_MAP = useMemo<Record<string, string[]>>(
-    () => ({
-      'Ready to Move': ['Ready to Move'],
-      'Less than 6 Months': ['Less than 6 Months', '0 to 6 Months'],
-      '6 to 12 Months': ['6 to 12 Months'],
-      '12 to 24 Months': ['12 to 18 Months', '18 to 24 Months', '12 to 24 Months'],
-      '24 to 36 Months': ['24 to 30 Months', '30 to 36 Months', '24 to 36 Months'],
-      'More than 36 Months': ['30+ Months', '36 to 40 Months', 'More than 36 Months', 'Above 36 Months'],
-    }),
-    []
-  );
+  // Sync cost sheet viewing
+  useEffect(() => {
+    if (socketRef.current && selectedProperty?.id) {
+      socketRef.current.emit('view_cost_sheet', { 
+        projectId: selectedProperty.id, 
+        unitId: isCostSheetModalOpen ? selectedUnit?.id : null 
+      });
+    }
+    return () => {
+      if (socketRef.current && selectedProperty?.id) {
+        socketRef.current.emit('view_cost_sheet', { projectId: selectedProperty.id, unitId: null });
+      }
+    };
+  }, [isCostSheetModalOpen, selectedUnit?.id, selectedProperty?.id]);
+
+  const POSSESSION_ORDER = useMemo(() => [
+    'Less than 6 Months',
+    '6 to 12 Months',
+    '12 to 24 Months',
+    '24 to 36 Months',
+    'More than 36 Months'
+  ], []);
+
+  const POSSESSION_GROUP_MAP = useMemo<Record<string, string[]>>(() => ({
+    'Ready to Move': ['Ready to Move'],
+    'Less than 6 Months': ['Less than 6 Months', '0 to 6 Months'],
+    '6 to 12 Months': ['6 to 12 Months'],
+    '12 to 24 Months': ['12 to 18 Months', '18 to 24 Months', '12 to 24 Months'],
+    '24 to 36 Months': ['24 to 30 Months', '30 to 36 Months', '24 to 36 Months'],
+    'More than 36 Months': ['30+ Months', '36 to 40 Months', 'More than 36 Months', 'Above 36 Months'],
+  }), []);
 
   const sortByPossession = useCallback((rows: any[]) => {
     return [...rows].sort((a: any, b: any) => {
@@ -347,7 +325,6 @@ export default function PropertyPortal() {
   }, [POSSESSION_ORDER]);
 
   useEffect(() => {
-    // Single parallel fetch: filters + all properties at once — no per-city or per-project waterfall
     Promise.all([
       api.get('/portal/distinct-filters'),
       api.get('/properties', { params: { limit: 2000 } }),
@@ -356,7 +333,7 @@ export default function PropertyPortal() {
         const { cities, bhks, possessions, productTypes: ptRaw } = filterRes.data.data;
         const CITY_ORDER = ['chennai', 'bangalore', 'bengaluru', 'hyderabad', 'coimbatore', 'dubai', 'pune'];
         const cityList = (cities || []).map((c: string) => ({ label: c, value: c }))
-          .sort((a: { label: string; value: string }, b: { label: string; value: string }) => {
+          .sort((a: any, b: any) => {
             const idxA = CITY_ORDER.indexOf(a.value.toLowerCase());
             const idxB = CITY_ORDER.indexOf(b.value.toLowerCase());
             if (idxA === -1 && idxB === -1) return a.label.localeCompare(b.label);
@@ -366,9 +343,8 @@ export default function PropertyPortal() {
           });
         setCities(cityList);
         setBhkTypes((bhks || []).map((b: string) => ({ label: b, value: b })));
-
         const possessionList = (possessions || []).map((p: string) => ({ label: p, value: p }))
-          .sort((a: { label: string; value: string }, b: { label: string; value: string }) => {
+          .sort((a: any, b: any) => {
             const idxA = POSSESSION_ORDER.indexOf(a.value);
             const idxB = POSSESSION_ORDER.indexOf(b.value);
             if (idxA === -1 && idxB === -1) return a.label.localeCompare(b.label);
@@ -379,10 +355,9 @@ export default function PropertyPortal() {
         setPossessions(possessionList);
         setProductTypes((ptRaw || []).map((p: string) => ({ label: p, value: p })));
 
-        // Build cityCounts — case-insensitive: "COIMBATORE" and "Coimbatore" map to same cityList entry
         const allRows: any[] = propsRes.data.data || [];
         const cityLabelByLower: Record<string, string> = {};
-        cityList.forEach((c: { label: string; value: string }) => {
+        cityList.forEach((c: any) => {
           cityLabelByLower[c.value.toLowerCase()] = c.value;
         });
         const map: Record<string, { total: number; available: number }> = {};
@@ -394,14 +369,12 @@ export default function PropertyPortal() {
           map[city].total += 1;
           map[city].available += parseInt(p.available_units || 0);
         });
-        // Ensure every known city has an entry
-        cityList.forEach((c: { label: string; value: string }) => {
+        cityList.forEach((c: any) => {
           if (!map[c.value]) map[c.value] = { total: 0, available: 0 };
         });
         setCityCounts(map);
         setCityCountsReady(true);
 
-        // Fixed global stats — computed once, never affected by filters
         const uniqueCities = new Set(allRows.map((p: any) => {
           const rawCity = p.cityData?.name || p.city || '';
           return rawCity ? (cityLabelByLower[rawCity.toLowerCase()] || rawCity) : '';
@@ -413,11 +386,25 @@ export default function PropertyPortal() {
         });
 
         const initialProps = allRows.filter((p: any) => parseInt(p.available_units || 0) > 0);
-        setProperties(sortByPossession(initialProps));
+        const sorted = sortByPossession(initialProps);
+        setProperties(sorted);
         setFiltersLoading(false);
+
+        // Handle URL-based initial state (Query params instead of separate pages)
+        const action = searchParams.get('action');
+        const id = searchParams.get('id');
+        if (action && id) {
+          const prop = sorted.find(p => p.id.toString() === id.toString());
+          if (prop) {
+            setSelectedProperty(prop);
+            if (action === 'booking') setIsUnitsModalOpen(true);
+            if (action === 'virtual-tour') setIsVirtualTourModalOpen(true);
+            if (action === 'site-visit') setIsSiteVisitModalOpen(true);
+          }
+        }
       })
       .catch(() => { setFiltersLoading(false); });
-  }, [sortByPossession]);
+  }, [sortByPossession, searchParams]);
 
   useEffect(() => {
     setFilterLocationIds([]);
@@ -439,7 +426,6 @@ export default function PropertyPortal() {
     if (filterLocationIds.length) params.location = filterLocationIds.join(',');
     if (filterBhks.length) params.bhk = filterBhks;
     if (filterPossessions.length) {
-      // Expand display labels to real DB values using the group map
       const expandedPossessions = Array.from(
         new Set(filterPossessions.flatMap(p => POSSESSION_GROUP_MAP[p] ?? [p]))
       );
@@ -469,8 +455,7 @@ export default function PropertyPortal() {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterCityId, searchTrigger, sortByPossession]); // Only trigger on city change or manual Search click
+  }, [filterCityId, searchTrigger, sortByPossession]);
 
   const handleResetFilters = () => {
     setFilterCityId(null);
@@ -483,15 +468,12 @@ export default function PropertyPortal() {
     setMaxPrice('');
     setCurrentPage(1);
     setActiveStatFilter(null);
-    setMobileCitySelected(false);
     setShowAdvancedFilters(true);
   };
 
-  // Stats Banner values: fixed global totals, never change on filter
   const totalProjects = globalStats?.totalProjects ?? null;
   const withUnitsCount = globalStats?.withUnits ?? null;
   const totalCities = globalStats?.totalCities ?? null;
-
   const grandTotal = useMemo(() => Object.values(cityCounts).reduce((acc, c) => acc + c.total, 0), [cityCounts]);
   const grandAvailable = useMemo(() => Object.values(cityCounts).reduce((acc, c) => acc + c.available, 0), [cityCounts]);
 
@@ -515,34 +497,49 @@ export default function PropertyPortal() {
   const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
   const currentProperties = filteredProperties.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const handlePropertyClick = async (prop: any) => {
+  const handlePropertyClick = async (prop: any, defaultView: 'list' | 'grid' = 'list') => {
     setSelectedProperty(prop);
+    setModalInitialView(defaultView);
     try {
-      const params: any = { limit: 2000, available_only: 'true' };
-      if (appliedFilters.filterBhks.length) params.bhk = appliedFilters.filterBhks.join(',');
-      if (appliedFilters.minPrice) params.min_price = appliedFilters.minPrice;
-      if (appliedFilters.maxPrice) params.max_price = appliedFilters.maxPrice;
-      if (appliedFilters.filterPossessions.length) params.possession = appliedFilters.filterPossessions;
-      if (appliedFilters.filterProductTypes.length) params.product_type = appliedFilters.filterProductTypes;
-      const res = await api.get(`/properties/${prop.id}/details`, { params });
-      const units = res.data.data || [];
-      setPropertyUnits(units);
-      setSelectedProperty({ ...prop, available_units: units.length });
-      setProperties(prev => prev.map(p =>
-        p.id === prop.id ? { ...p, available_units: units.length } : p
-      ));
+      // Fetch ALL units to support the Grid View (floor plan)
+      const res = await api.get(`/properties/${prop.id}/details`, { params: { limit: 2000 } });
+      const all = res.data.data || [];
+      setPropertyAllUnits(all);
+      
+      // Filter available-only for the List View
+      const available = all.filter((u: any) => {
+        const status = (u.status || '').toLowerCase();
+        return [
+          'vacant', 'hsbc-vacant', 'vacant (rent or lease)', 
+          'open for sale with 10%', 'hsbc-open for sale with 10%', 
+          'investor', 'hsbc-investor', 'investor-open for sale with 10%', 
+          'hsbc-vacant-lo'
+        ].includes(status);
+      });
+      setPropertyUnits(available);
+      
+      setSelectedProperty({ ...prop, available_units: available.length });
       setIsUnitsModalOpen(true);
     } catch { console.error('Failed to fetch units'); }
   };
 
-  useEffect(() => {
-    const isAnyModalOpen = isUnitsModalOpen || isCostSheetModalOpen;
-    const header = document.querySelector('header');
-    if (header && window.innerWidth < 768) {
-      (header as HTMLElement).style.display = isAnyModalOpen ? 'none' : '';
-    }
-    return () => { const h = document.querySelector('header'); if (h) (h as HTMLElement).style.display = ''; };
-  }, [isUnitsModalOpen, isCostSheetModalOpen]);
+  const handleBookNowClick = (prop: any) => {
+    setSelectedProperty(prop);
+    router.push(`/booking-portal/properties?action=booking&id=${prop.id}`);
+    handlePropertyClick(prop, 'grid');
+  };
+
+  const handleVirtualTourClick = (prop: any) => {
+    setSelectedProperty(prop);
+    router.push(`/booking-portal/properties?action=virtual-tour&id=${prop.id}`);
+    setIsVirtualTourModalOpen(true);
+  };
+
+  const handleSiteVisitClick = (prop: any) => {
+    setSelectedProperty(prop);
+    router.push(`/booking-portal/properties?action=site-visit&id=${prop.id}`);
+    setIsSiteVisitModalOpen(true);
+  };
 
   useEffect(() => {
     const el = mobileCityScrollRef.current;
@@ -568,8 +565,6 @@ export default function PropertyPortal() {
     return () => el.removeEventListener('scroll', check);
   }, [showAdvancedFilters]);
 
-
-
   const priceOptions = [
     { label: '20L', value: '20' }, { label: '40L', value: '40' },
     { label: '60L', value: '60' }, { label: '80L', value: '80' },
@@ -583,7 +578,6 @@ export default function PropertyPortal() {
   ];
 
   const dubaiPriceOptions = [
-    // { label: 'AED 0.5M', value: '0.5' }, { label: 'AED 0.75M', value: '0.75' },
     { label: 'AED 1M', value: '1' }, { label: 'AED 1.5M', value: '1.5' },
     { label: 'AED 2M', value: '2' }, { label: 'AED 2.5M', value: '2.5' },
     { label: 'AED 3M', value: '3' }, { label: 'AED 4M', value: '4' },
@@ -599,30 +593,19 @@ export default function PropertyPortal() {
     setFilterCityId(cityValue);
     setCurrentPage(1);
     setActiveStatFilter(null);
-    setMobileCitySelected(true);
   };
 
-  // --- Icon map for Product Types ---
   const productTypeIcons: Record<string, React.ReactNode> = {
     'Flat/Apartment': <Building2 className="w-5 h-5" />,
     'House/Villa': <Home className="w-5 h-5" />,
     'Villa': <Home className="w-5 h-5" />,
     'Plot/Land': <MapPin className="w-5 h-5" />,
-    'Penthouse': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7v15h20V7L12 2z" /><rect x="8" y="12" width="8" height="10" /><line x1="12" y1="12" x2="12" y2="22" /></svg>,
-    'Townhouse': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="10" height="15" rx="1" /><rect x="12" y="7" width="10" height="15" rx="1" /><path d="M7 2l-5 5h10L7 2z" /><path d="M17 2l-5 5h10L17 2z" /></svg>,
-    'Villament': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><rect x="9" y="13" width="6" height="9" /><line x1="12" y1="2" x2="12" y2="7" /></svg>,
   };
   const defaultProductIcon = <Building2 className="w-5 h-5" />;
 
-  // --- Icon map for Possession Status ---
   const possessionIcons: Record<string, React.ReactNode> = {
     'Ready to Move': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
     'Less than 6 Months': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>,
-    '0 to 6 Months': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>,
-    '6 to 12 Months': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>,
-    '12 to 24 Months': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>,
-    '24 to 36 Months': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>,
-    'More than 36 Months': <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>,
   };
   const defaultPossessionIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 8 14" /></svg>;
 
@@ -630,10 +613,8 @@ export default function PropertyPortal() {
     ? activePriceOptions.filter(p => parseFloat(p.value) > parseFloat(minPrice))
     : activePriceOptions;
 
-  // --- Shared Filter Panel JSX ---
   const filterPanel = (
     <div className="space-y-6">
-      {/* ── Header ── */}
       <div className="flex items-center justify-between border-b border-white/40 pb-3 mb-1">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
@@ -643,12 +624,10 @@ export default function PropertyPortal() {
         </div>
       </div>
 
-      {/* ── Row 1: Budget & BHK ── */}
       <div className="grid grid-cols-1 md:grid-cols-[360px_1fr] md:gap-x-14 gap-y-8 items-start">
         <div className="space-y-2">
           <div className="text-[10px] uppercase tracking-widest font-black ml-1" style={{ color: '#0f172a' }}>Filter by Budget</div>
           <div className="flex items-start gap-2 p-1.5 rounded-xl border bg-white/50 backdrop-blur-sm" style={{ borderColor: '#e2e8f0' }}>
-            {/* Min Price column */}
             <div className="flex-1 flex flex-col min-w-0">
               <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border-b"
                 style={{ color: '#0f172a', borderColor: '#e2e8f0', background: 'rgba(255,255,255,0.85)', borderRadius: '6px 6px 0 0' }}>
@@ -662,7 +641,6 @@ export default function PropertyPortal() {
               </select>
             </div>
             <div className="w-px self-stretch bg-slate-200" />
-            {/* Max Price column */}
             <div className="flex-1 flex flex-col min-w-0">
               <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border-b"
                 style={{ color: '#0f172a', borderColor: '#e2e8f0', background: 'rgba(255,255,255,0.85)', borderRadius: '6px 6px 0 0' }}>
@@ -706,7 +684,6 @@ export default function PropertyPortal() {
         </div>
       </div>
 
-      {/* ── Row 2: Type & Status ── */}
       <div className="grid grid-cols-1 md:grid-cols-[360px_1fr] md:gap-x-14 gap-y-8 items-start">
         <div className="space-y-2">
           <div className="text-[10px] uppercase tracking-widest font-black ml-1" style={{ color: '#0f172a' }}>Property Type</div>
@@ -792,7 +769,6 @@ export default function PropertyPortal() {
         </div>
       </div>
 
-      {/* ── Bottom Action ── */}
       <div className="flex flex-col md:flex-row items-center justify-center gap-4">
         <button onClick={() => { setSearchTrigger(t => t + 1); setCurrentPage(1); setShowAdvancedFilters(false); }}
           className="relative flex items-center justify-center gap-3 py-3 px-10 rounded-2xl font-black text-xs uppercase tracking-widest text-white shadow-xl transition-all active:scale-[0.98] group overflow-hidden"
@@ -818,7 +794,6 @@ export default function PropertyPortal() {
       <div className="pb-20 min-h-screen" style={{ background: '#f8f9fc' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-3">
 
-          {/* Stats Banner */}
           <div className="relative rounded-[1.5rem] overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a1628 0%, #1e3a5f 100%)' }}>
             <div className="absolute inset-0 opacity-20">
               <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1400&auto=format&fit=crop" alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -850,14 +825,12 @@ export default function PropertyPortal() {
             </div>
           </div>
 
-          {/* ── DESKTOP: Horizontal tab strip (md and above) ── */}
           <div className="hidden md:block w-full">
             <div
               ref={desktopCityScrollRef}
               className="flex w-full rounded-2xl border shadow-sm overflow-hidden"
               style={{ background: '#ffffff', borderColor: '#e2e8f0' }}
             >
-              {/* ALL tab */}
               <button
                 onClick={() => handleCityTabClick('')}
                 className="flex-1 px-4 py-3 text-left transition-all"
@@ -902,8 +875,6 @@ export default function PropertyPortal() {
                         borderBottom: isActive ? '3px solid #f59e0b' : '3px solid transparent',
                         borderRadius: idx === cities.length - 1 ? '0 1rem 1rem 0' : 0,
                       }}
-                      onMouseEnter={e => { if (!isActive) (e.currentTarget.style.background = '#f8fafc'); }}
-                      onMouseLeave={e => { if (!isActive) (e.currentTarget.style.background = 'transparent'); }}
                     >
                       <div className="font-bold text-sm" style={{ color: isActive ? '#92400e' : '#334155' }}>{city.label}</div>
                       {cityCountsReady ? (
@@ -921,7 +892,6 @@ export default function PropertyPortal() {
             </div>
           </div>
 
-          {/* ── MOBILE: Horizontal scrollable pill strip + arrows (below md) ── */}
           <div className="md:hidden">
             <div className="flex items-center gap-2">
               <button
@@ -936,7 +906,6 @@ export default function PropertyPortal() {
                 className="flex gap-2 overflow-x-auto pb-1 flex-1"
                 style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
               >
-                {/* All pill */}
                 <button
                   onClick={() => handleCityTabClick('')}
                   className="flex-shrink-0 flex flex-col items-center px-2 py-2.5 rounded-2xl transition-all"
@@ -966,7 +935,6 @@ export default function PropertyPortal() {
                   )}
                 </button>
 
-                {/* City pills */}
                 {filtersLoading ? (
                   Array.from({ length: 4 }).map((_, i) => <SkeletonPill key={i} />)
                 ) : (
@@ -1017,7 +985,6 @@ export default function PropertyPortal() {
             </div>
           </div>
 
-          {/* ── Scroll Arrows — tablet/laptop (md to lg) ── */}
           <div className="hidden md:flex lg:hidden justify-center items-center gap-3 mt-3 mb-1">
             <button
               onClick={() => desktopCityScrollRef.current?.scrollBy({ left: -160, behavior: 'smooth' })}
@@ -1036,9 +1003,7 @@ export default function PropertyPortal() {
             </button>
           </div>
 
-          {/* ── Advanced Filter Toggle & Panel ── */}
           <>
-            {/* Desktop Filter Panel */}
             <div className="hidden lg:block space-y-4">
               <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className="flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-sm transition-all active:scale-[0.98] border shadow-sm"
@@ -1062,7 +1027,6 @@ export default function PropertyPortal() {
               )}
             </div>
 
-            {/* Mobile Filter */}
             <div className="lg:hidden">
               <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className="w-full flex items-center justify-between px-6 py-5 rounded-[1.5rem] font-black text-sm shadow-xl transition-all active:scale-[0.98]"
@@ -1083,7 +1047,6 @@ export default function PropertyPortal() {
             </div>
           </>
 
-          {/* Active Filter Results Info */}
           <div className="px-2 pb-2">
             {hasFilter && (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1092,22 +1055,11 @@ export default function PropertyPortal() {
                   <h2 className="text-xl font-black tracking-tight text-neutral-800">Showing Filtered Results</h2>
                   <span className="text-sm font-bold text-neutral-400">({filteredProperties.length} found)</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 mr-1">Active:</span>
-                  {appliedFilters.filterCityId && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-brand-200 text-brand-600" style={{ borderColor: '#fde68a', color: '#d97706' }}>{appliedFilters.filterCityId}</span>}
-                  {appliedFilters.filterLocationIds.length > 0 && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-neutral-200 text-neutral-600">{appliedFilters.filterLocationIds.length} Loc</span>}
-                  {appliedFilters.filterBhks.length > 0 && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-neutral-200 text-neutral-600">{appliedFilters.filterBhks.length} BHK</span>}
-                  {appliedFilters.filterProductTypes.length > 0 && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-neutral-200 text-neutral-600">{appliedFilters.filterProductTypes.length} Type</span>}
-                  {appliedFilters.filterPossessions.length > 0 && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-neutral-200 text-neutral-600">Possession</span>}
-                </div>
               </div>
             )}
           </div>
 
-          {/* Table */}
           <div className="bg-white shadow-sm border" style={{ borderColor: '#e2e8f0', borderRadius: '1.5rem' }}>
-
-            {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto" style={{ borderRadius: '1.5rem 1.5rem 0 0' }}>
               <div style={{ maxHeight: '600px', overflowY: 'auto', borderRadius: '1.5rem 1.5rem 0 0' }}>
                 <table className="w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -1116,7 +1068,7 @@ export default function PropertyPortal() {
                       <th className="px-6 py-5 text-left font-bold uppercase tracking-widest text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Project Name</th>
                       <th className="px-6 py-5 text-left font-bold uppercase tracking-widest text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Location</th>
                       <th className="px-6 py-5 text-center font-bold uppercase tracking-widest text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Available Units</th>
-                      <th className="px-6 py-5 text-center font-bold uppercase tracking-widest text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}></th>
+                      <th className="px-6 py-5 text-center font-bold uppercase tracking-widest text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1134,40 +1086,49 @@ export default function PropertyPortal() {
                       <tr key={p.id}
                         className="group transition-colors border-b"
                         style={{ borderColor: '#f1f5f9', cursor: 'pointer' }}
-                        onClick={() => handlePropertyClick(p)}
                         onMouseEnter={e => (e.currentTarget.style.background = '#fffbeb')}
                         onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                        <td className="px-6 py-5">
+                        <td className="px-6 py-5" onClick={() => handlePropertyClick(p)}>
                           <div className="font-bold text-sm" style={{ color: '#1e293b' }}>{p.project_name}</div>
                           {p.possession_status && <div className="text-[10px] uppercase font-bold mt-0.5" style={{ color: '#59616c', letterSpacing: '0.1em' }}>{p.possession_status}</div>}
                         </td>
-                        <td className="px-6 py-5">
-                          <div className="relative group/loc inline-block">
-                            <div className="font-medium text-sm" style={{ color: '#59616c' }}>{p.locationData?.name || '—'}</div>
-                            <div className="text-xs" style={{ color: '#59616c' }}>{p.cityData?.name || ''}</div>
-                            {p.serving_locations && (
-                              <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover/loc:block"
-                                style={{ background: '#1e293b', color: '#fff', fontSize: 11, padding: '6px 10px', borderRadius: 8, whiteSpace: 'nowrap', maxWidth: 280, boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
-                                <span style={{ color: '#59616c', fontWeight: 600 }}>Serving: </span>{p.serving_locations}
-                              </div>
-                            )}
-                          </div>
+                        <td className="px-6 py-5" onClick={() => handlePropertyClick(p)}>
+                          <div className="font-medium text-sm" style={{ color: '#59616c' }}>{p.locationData?.name || '—'}</div>
+                          <div className="text-xs" style={{ color: '#59616c' }}>{p.cityData?.name || ''}</div>
                         </td>
-                        <td className="px-6 py-5 text-center">
+                        <td className="px-6 py-5 text-center" onClick={() => handlePropertyClick(p)}>
                           <span className="inline-flex items-center justify-center min-w-[2.5rem] px-3 py-1 rounded-full font-bold text-sm"
                             style={{ background: '#f0fdf4', color: '#15803d' }}>
                             {p.available_units || 0}
                           </span>
                         </td>
                         <td className="px-6 py-5 text-center">
-                          <button
-                            onClick={e => { e.stopPropagation(); handlePropertyClick(p); }}
-                            className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                            style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}
-                            onMouseEnter={e => { (e.currentTarget.style.background = '#f59e0b'); (e.currentTarget.style.color = '#0a1628'); }}
-                            onMouseLeave={e => { (e.currentTarget.style.background = '#fffbeb'); (e.currentTarget.style.color = '#d97706'); }}>
-                            View Units
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={e => { e.stopPropagation(); handleSiteVisitClick(p); }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border shadow-sm"
+                              style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bcf2d1' }}
+                              onMouseEnter={e => { (e.currentTarget.style.background = '#15803d'); (e.currentTarget.style.color = '#fff'); }}
+                              onMouseLeave={e => { (e.currentTarget.style.background = '#f0fdf4'); (e.currentTarget.style.color = '#15803d'); }}>
+                              <CalendarCheck className="w-3 h-3" /> Site Visit
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleVirtualTourClick(p); }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border shadow-sm"
+                              style={{ background: '#f5f3ff', color: '#6d28d9', borderColor: '#ddd6fe' }}
+                              onMouseEnter={e => { (e.currentTarget.style.background = '#6d28d9'); (e.currentTarget.style.color = '#fff'); }}
+                              onMouseLeave={e => { (e.currentTarget.style.background = '#f5f3ff'); (e.currentTarget.style.color = '#6d28d9'); }}>
+                              <Video className="w-3 h-3" /> Virtual Tour
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleBookNowClick(p); }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border shadow-sm"
+                              style={{ background: '#fffbeb', color: '#d97706', borderColor: '#fde68a' }}
+                              onMouseEnter={e => { (e.currentTarget.style.background = '#f59e0b'); (e.currentTarget.style.color = '#0a1628'); }}
+                              onMouseLeave={e => { (e.currentTarget.style.background = '#fffbeb'); (e.currentTarget.style.color = '#d97706'); }}>
+                              <BookOpen className="w-3 h-3" /> Book Now
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1176,7 +1137,6 @@ export default function PropertyPortal() {
               </div>
             </div>
 
-            {/* Mobile property list */}
             <div className="md:hidden">
               {loading ? (
                 <div className="p-8 text-center" style={{ color: '#59616c' }}>
@@ -1189,9 +1149,8 @@ export default function PropertyPortal() {
                   <p className="font-bold" style={{ color: '#59616c' }}>{!hasFilter ? "Please apply filters to view properties" : "No properties found matching your filters"}</p>
                 </div>
               ) : currentProperties.map(p => (
-                <div key={p.id} className="p-5 border-b" style={{ borderColor: '#f1f5f9', cursor: 'pointer' }}
-                  onClick={() => handlePropertyClick(p)}>
-                  <div className="flex items-start justify-between gap-3">
+                <div key={p.id} className="p-4 border-b" style={{ borderColor: '#f1f5f9' }}>
+                  <div className="flex items-start justify-between gap-3 mb-4" onClick={() => handlePropertyClick(p)}>
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#f1f5f9' }}>
                         <Building2 className="w-5 h-5" style={{ color: '#59616c' }} />
@@ -1202,23 +1161,21 @@ export default function PropertyPortal() {
                           <MapPin className="w-3 h-3 flex-shrink-0" />
                           <span className="truncate">{p.locationData?.name}, {p.cityData?.name}</span>
                         </div>
-                        <span className="inline-flex items-center justify-center mt-2 px-2 py-0.5 rounded-full font-bold text-xs" style={{ background: '#f0fdf4', color: '#15803d' }}>
+                        <span className="inline-flex items-center justify-center mt-2 px-2 py-0.5 rounded-full font-bold text-[10px]" style={{ background: '#f0fdf4', color: '#15803d' }}>
                           {p.available_units || 0} Available
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); handlePropertyClick(p); }}
-                      className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider self-center"
-                      style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>
-                      View Units
-                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => handleSiteVisitClick(p)} className="flex flex-col items-center gap-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-tight border" style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bcf2d1' }}><CalendarCheck className="w-3.5 h-3.5" /> Visit</button>
+                    <button onClick={() => handleVirtualTourClick(p)} className="flex flex-col items-center gap-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-tight border" style={{ background: '#f5f3ff', color: '#6d28d9', borderColor: '#ddd6fe' }}><Video className="w-3.5 h-3.5" /> Tour</button>
+                    <button onClick={() => handleBookNowClick(p)} className="flex flex-col items-center gap-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-tight border" style={{ background: '#fffbeb', color: '#d97706', borderColor: '#fde68a' }}><BookOpen className="w-3.5 h-3.5" /> Book</button>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Pagination — always show if data exists and more than 1 page */}
             {!loading && totalPages > 1 && currentProperties.length > 0 && (
               <div className="px-4 sm:px-6 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4"
                 style={{ borderColor: '#f1f5f9', background: '#f8fafc', borderRadius: '0 0 1.5rem 1.5rem' }}>
@@ -1249,15 +1206,51 @@ export default function PropertyPortal() {
               </div>
             )}
           </div>
-
         </div>
       </div>
 
-      <UnitsModal isOpen={isUnitsModalOpen} onClose={() => setIsUnitsModalOpen(false)}
-        property={selectedProperty} units={propertyUnits}
-        onSelectUnit={(unit: any) => { setSelectedUnit(unit); setIsUnitsModalOpen(false); setIsCostSheetModalOpen(true); }} />
-      <CostSheetModal isOpen={isCostSheetModalOpen} onClose={() => { setIsCostSheetModalOpen(false); setIsUnitsModalOpen(true); }}
-        unit={selectedUnit} property={selectedProperty} />
-    </AppLayout >
+      <BookingUnitsModal 
+        isOpen={isUnitsModalOpen} 
+        onClose={() => { setIsUnitsModalOpen(false); router.push('/booking-portal/properties'); }}
+        property={selectedProperty} 
+        units={propertyUnits}
+        allUnits={propertyAllUnits}
+        initialView={modalInitialView}
+        viewers={unitViewers}
+        costViewers={costSheetViewers}
+        socket={socketRef.current}
+        onSelectUnit={(unit: any) => { setSelectedUnit(unit); setIsUnitsModalOpen(false); setIsCostSheetModalOpen(true); }}
+        onBookNow={(unit: any) => { setSelectedUnit(unit); setIsUnitsModalOpen(false); setIsBookNowModalOpen(true); }}
+      />
+      
+      <CostSheetModal 
+        isOpen={isCostSheetModalOpen} 
+        onClose={() => { setIsCostSheetModalOpen(false); setIsUnitsModalOpen(true); }}
+        unit={selectedUnit} 
+        property={selectedProperty} 
+      />
+
+      <BookNowModal 
+        isOpen={isBookNowModalOpen} 
+        onClose={() => { 
+          setIsBookNowModalOpen(false); 
+          setIsUnitsModalOpen(true); 
+        }}
+        unit={propertyAllUnits.find(u => u.id === selectedUnit?.id) || selectedUnit}
+        property={selectedProperty}
+      />
+
+      <VirtualTourModal 
+        isOpen={isVirtualTourModalOpen} 
+        onClose={() => { setIsVirtualTourModalOpen(false); router.push('/booking-portal/properties'); }}
+        property={selectedProperty}
+      />
+
+      <SiteVisitModal 
+        isOpen={isSiteVisitModalOpen} 
+        onClose={() => { setIsSiteVisitModalOpen(false); router.push('/booking-portal/properties'); }}
+        property={selectedProperty}
+      />
+    </AppLayout>
   );
 }

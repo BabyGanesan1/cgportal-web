@@ -162,6 +162,7 @@ export default function ActivityLogsPage() {
                       { value: 'SEND_COST_SHEET_EMAIL', label: 'Send Cost Sheet Email' },
                       { value: 'REQUEST_COST_SHEET_DOWNLOAD', label: 'Request Cost Sheet Download' },
                       { value: 'REQUEST_COST_SHEET_EMAIL', label: 'Request Cost Sheet Email' },
+                      { value: 'UNIT_BOOKING', label: 'Unit Booking' },
                     ]}
                   />
                 </div>
@@ -287,7 +288,7 @@ export default function ActivityLogsPage() {
                         </span>
                         {log.action === 'SEND_COST_SHEET_EMAIL' && log.details?.sent_to && (
                           <div className="flex items-center gap-1 pl-1.5 mt-1.5">
-                            <span className="text-xs font-semibold text-brand-600">Sent to:</span>
+                            <span className="text-xs font-semibold text-brand-600">Sent to: </span>
                             <span className="text-xs text-brand-700 font-medium">{log.details.sent_to}</span>
                           </div>
                         )}

@@ -20,12 +20,20 @@ export default function LoginPage() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
+    const flsDeptMap: Record<string, string> = {
+        'FLS-Booking': '/fls-booking-portal/booking',
+        'FLS-Checking': '/fls-booking-portal/checking',
+        'FLS-Source': '/fls-booking-portal/source',
+    };
+
     // If already logged in, redirect to the correct page
     useEffect(() => {
         if (!isAuthenticated()) return;
         const admin = getAdmin();
         if (admin?.role === 'admin') {
-            if (admin.owner === false && admin.zonal) {
+            if (admin.department && flsDeptMap[admin.department]) {
+                router.replace(flsDeptMap[admin.department]);
+            } else if (admin.owner === false && admin.zonal) {
                 router.replace(`/${admin.zonal}/dashboard`);
             } else {
                 router.replace('/dashboard');
@@ -54,7 +62,9 @@ export default function LoginPage() {
             toast.success('Welcome back!');
             const adminData = res.data.data.admin;
             if (adminData.role === 'admin') {
-                if (adminData.owner === false && adminData.zonal) {
+                if (adminData.department && flsDeptMap[adminData.department]) {
+                    router.replace(flsDeptMap[adminData.department]);
+                } else if (adminData.owner === false && adminData.zonal) {
                     router.replace(`/${adminData.zonal}/dashboard`);
                 } else {
                     router.replace('/dashboard');
@@ -92,7 +102,9 @@ export default function LoginPage() {
             toast.success('Welcome back!');
             const adminData = res.data.data.admin;
             if (adminData.role === 'admin') {
-                if (adminData.owner === false && adminData.zonal) {
+                if (adminData.department && flsDeptMap[adminData.department]) {
+                    router.replace(flsDeptMap[adminData.department]);
+                } else if (adminData.owner === false && adminData.zonal) {
                     router.replace(`/${adminData.zonal}/dashboard`);
                 } else {
                     router.replace('/dashboard');

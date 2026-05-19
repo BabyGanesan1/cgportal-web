@@ -76,8 +76,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
   // Read auth state only after mount (localStorage is client-only)
   const admin = mounted ? getAdmin() : null;
   const isAdmin = admin?.role === 'admin';
+  const isFLSUser = ['FLS-Booking', 'FLS-Checking', 'FLS-Source'].includes(admin?.department || '');
 
-  const shouldShowSidebar = mounted && isAdmin;
+  const shouldShowSidebar = mounted && isAdmin && !isFLSUser;
 
   return (
     <div className="flex h-screen bg-brand-50 overflow-hidden">

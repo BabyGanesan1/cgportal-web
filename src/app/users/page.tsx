@@ -385,6 +385,9 @@ export default function UsersPage() {
                 <option value="sales">Sales</option>
                 <option value="marketing">Marketing</option>
                 <option value="finance">Finance</option>
+                <option value="FLS-Booking">FLS-Booking</option>
+                <option value="FLS-Checking">FLS-Checking</option>
+                <option value="FLS-Source">FLS-Source</option>
               </select>
             </div>
             <div>
@@ -445,6 +448,9 @@ export default function UsersPage() {
                 <option value="sales">Sales</option>
                 <option value="marketing">Marketing</option>
                 <option value="finance">Finance</option>
+                <option value="FLS-Booking">FLS-Booking</option>
+                <option value="FLS-Checking">FLS-Checking</option>
+                <option value="FLS-Source">FLS-Source</option>
               </select>
             </div>
           </div>

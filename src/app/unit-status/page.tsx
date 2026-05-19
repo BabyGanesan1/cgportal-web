@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { getUnitStatuses, updateUnitStatus } from '../../lib/unitStatus';
 import Select from '../../components/ui/Select';
 
-const HEADERS = ['Project', 'Unit No', 'Status', 'Updated By', 'Updated At'];
+const HEADERS = ['Project', 'Unit No', 'Status', 'Car Park Type', 'Car Park Charges(In Lakhs)', 'Updated By', 'Updated At'];
 
 export default function UnitStatusPage() {
   const [data, setData] = useState<any[]>([]);
@@ -187,6 +187,14 @@ export default function UnitStatusPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
+                      <div className="font-medium text-brand-700">{row.car_park_type || '-'}</div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="font-bold text-brand-900">
+                        {row.car_park_charges ? `${Number(row.car_park_charges).toLocaleString('en-IN')}` : '-'}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-[10px] uppercase border-2 border-white ring-1 ring-brand-50 shadow-sm">
                           {row.updatedBy?.name?.charAt(0) || '?'}
@@ -224,8 +232,8 @@ export default function UnitStatusPage() {
             <div>
               <p className="font-semibold">Status Update Synchronization</p>
               <p className="text-xs opacity-80 mt-1">
-                Upload an Excel file with <b>PROJECT</b>, <b>UNIT NO</b>, and <b>STATUS</b> columns.
-                Existing unit statuses will be updated based on the matching project name and unit number.
+                Upload an Excel file with <b>PROJECT</b>, <b>UNIT NO</b>, <b>STATUS</b>, <b>CAR PARK TYPE</b>, and <b>CAR PARK CHARGES</b> columns.
+                Existing unit statuses and car park details will be updated based on the matching project name and unit number.
               </p>
             </div>
           </div>
