@@ -34,6 +34,20 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
     }
 
     const user = getAdmin();
+
+    // FLS users are restricted to their own section only
+    const flsAllowedPath: Record<string, string> = {
+      'FLS-Booking': '/fls-booking-portal/booking',
+      'FLS-Checking': '/fls-booking-portal/checking',
+      'FLS-Source': '/fls-booking-portal/source',
+    };
+    if (user?.department && flsAllowedPath[user.department]) {
+      const allowedBase = flsAllowedPath[user.department];
+      if (!currentPath.startsWith(allowedBase)) {
+        router.replace(allowedBase);
+        return;
+      }
+    }
     const adminOnlyPaths = ['/dashboard', '/masters', '/users', '/activity-logs', '/projects', '/project-locations', '/handover-details', '/units', '/unit-status', '/payment-schedules', '/bulk-upload-history'];
     
     // Helper to strip zonal prefix for checking path matches properly

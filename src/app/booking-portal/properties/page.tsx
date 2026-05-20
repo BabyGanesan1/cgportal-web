@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef, Suspense } from 'react';
 import { io } from 'socket.io-client';
 import { Search, MapPin, RefreshCw, ChevronRight, Building2, Home, ChevronLeft, ChevronRight as ChevronRightIcon, Filter, X, Video, CalendarCheck, BookOpen } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -145,7 +145,7 @@ const SkeletonTab = () => (
   </div>
 );
 
-export default function PropertyPortal() {
+function PropertyPortal() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -236,7 +236,7 @@ export default function PropertyPortal() {
       setPropertyUnits(prev => prev.filter(u => u.id !== unitId));
 
       // 3. Update selectedUnit if it matches the updated unit
-      setSelectedUnit(prev => (prev && prev.id === unitId) ? { ...prev, status: data.status } : prev);
+      setSelectedUnit((prev: any) => (prev && prev.id === unitId) ? { ...prev, status: data.status } : prev);
 
       // 4. Update global stats if needed
       if (data.status.toLowerCase() === 'booked') {
@@ -1252,5 +1252,13 @@ export default function PropertyPortal() {
         property={selectedProperty}
       />
     </AppLayout>
+  );
+}
+
+export default function PropertyPortalPage() {
+  return (
+    <Suspense>
+      <PropertyPortal />
+    </Suspense>
   );
 }

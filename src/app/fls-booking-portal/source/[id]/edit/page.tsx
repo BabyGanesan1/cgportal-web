@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
-import AppLayout from '../../../../../components/layout/AppLayout';
+import FlsLayout from '../../../_components/FlsLayout';
 import SourceForm from '../../../_components/SourceForm';
 import api from '../../../../../lib/api';
 import toast from 'react-hot-toast';
@@ -57,16 +57,19 @@ export default function SourceEditPage() {
   };
 
   return (
-    <AppLayout title="Edit Source Record" subtitle="Update FLS source / lead record">
+    <FlsLayout title="Edit Source Record" subtitle="Update FLS source / lead record">
       <div className="mb-4">
         <button onClick={() => router.push('/fls-booking-portal/source')}
-          className="flex items-center gap-2 text-sm text-brand-500 hover:text-brand-700 transition-colors">
+          className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-900 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Source List
         </button>
       </div>
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
-          Loading record...
+        <div className="bg-white rounded-xl border border-brand-100 shadow-sm p-12 text-center text-brand-500">
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-4 h-4 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+            Loading record...
+          </div>
         </div>
       ) : (
         <SourceForm
@@ -76,6 +79,6 @@ export default function SourceEditPage() {
           onCancel={() => router.push('/fls-booking-portal/source')}
         />
       )}
-    </AppLayout>
+    </FlsLayout>
   );
 }

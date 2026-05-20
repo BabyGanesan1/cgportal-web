@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import AppLayout from '../../../../components/layout/AppLayout';
+import FlsLayout from '../../_components/FlsLayout';
 import CheckingForm from '../../_components/CheckingForm';
 import api from '../../../../lib/api';
 import toast from 'react-hot-toast';
@@ -25,10 +25,10 @@ export default function CheckingAddPage() {
   };
 
   return (
-    <AppLayout title="Add Checking Record" subtitle="Create a new FLS checking record">
+    <FlsLayout title="Add Checking Record" subtitle="Create a new FLS checking record">
       <div className="mb-4">
         <button onClick={() => router.push('/fls-booking-portal/checking')}
-          className="flex items-center gap-2 text-sm text-brand-500 hover:text-brand-700 transition-colors">
+          className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-900 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Checking List
         </button>
       </div>
@@ -37,6 +37,6 @@ export default function CheckingAddPage() {
         saving={saving}
         onCancel={() => router.push('/fls-booking-portal/checking')}
       />
-    </AppLayout>
+    </FlsLayout>
   );
 }

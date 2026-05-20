@@ -1,8 +1,9 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Search, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, ChevronLeft, ChevronRight, BarChart2, CheckCircle2, Clock, HelpCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import AppLayout from '../../../components/layout/AppLayout';
+import FlsLayout from '../_components/FlsLayout';
+import FlsFilter from '../_components/FlsFilter';
 import api from '../../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -16,14 +17,17 @@ const TABLE_COLUMNS = [
   { key: 'checking_verify_status', label: 'Verify Status', isBadge: true },
 ];
 
+
 function VerifyBadge({ value }: { value: string }) {
-  if (!value) return <span className="text-gray-400">-</span>;
+  if (!value) return <span className="text-slate-700 text-xs">—</span>;
   const cls = value === 'verified'
-    ? 'bg-green-100 text-green-700'
-    : value === 'hold'
-    ? 'bg-yellow-100 text-yellow-700'
-    : 'bg-gray-100 text-gray-600';
-  return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cls}`}>{value}</span>;
+    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+    : 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold capitalize tracking-wide ${cls}`}>
+      {value}
+    </span>
+  );
 }
 
 export default function FlsCheckingListPage() {
@@ -31,31 +35,44 @@ export default function FlsCheckingListPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [unitNo, setUnitNo] = useState('');
+  const [flsAgent, setFlsAgent] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const buildParams = useCallback((overridePage?: number) => {
+    const params: any = {
+      page: overridePage ?? page, limit: PAGE_SIZE,
+      search,
+      unit_no: unitNo,
+      fls_agent: flsAgent,
+      customer_name: customerName,
+      date_field: 'createdAt',
+    };
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
+    return params;
+  }, [page, search, unitNo, flsAgent, customerName, dateFrom, dateTo]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = { page, limit: PAGE_SIZE, search, date_field: 'login_counter_date' };
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      const res = await api.get('/fls-booking', { params });
+      const res = await api.get('/fls-booking', { params: buildParams() });
       setData(res.data.data || []);
       setTotal(res.data.pagination?.total || 0);
       setTotalPages(res.data.pagination?.totalPages || 1);
-    } catch {
-      toast.error('Failed to load checking data');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, dateFrom, dateTo]);
+    } catch { toast.error('Failed to load checking data'); }
+    finally { setLoading(false); }
+  }, [buildParams]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  const resetPage = () => setPage(1);
 
   const handleDelete = async (row: any) => {
     if (!window.confirm(`Delete record for "${row.name || row.unit_no || 'this record'}"?`)) return;
@@ -64,103 +81,140 @@ export default function FlsCheckingListPage() {
       await api.delete(`/fls-booking/${row.id}`);
       toast.success('Deleted successfully');
       fetchData();
-    } catch {
-      toast.error('Delete failed');
-    } finally {
-      setDeleting(null);
-    }
+    } catch { toast.error('Delete failed'); }
+    finally { setDeleting(null); }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = { ...buildParams(1), limit: 10000, type: 'checking' };
+      const res = await api.get('/fls-booking/export', { params, responseType: 'blob' });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fls_checking_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exported successfully');
+    } catch { toast.error('Export failed'); }
+    finally { setExporting(false); }
+  };
+
+  const verified = data.filter(r => r.checking_verify_status === 'verified').length;
+  const hold = data.filter(r => r.checking_verify_status === 'hold').length;
+  const pending = data.filter(r => !r.checking_verify_status).length;
+
+  const stats = [
+    { label: 'Total Records', value: total, icon: BarChart2, color: 'text-blue-600', bg: 'bg-blue-50', bar: 'bg-blue-500' },
+    { label: 'Verified', value: verified, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500' },
+    { label: 'Hold', value: hold, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', bar: 'bg-yellow-500' },
+    { label: 'Pending', value: pending, icon: HelpCircle, color: 'text-gray-500', bg: 'bg-gray-100', bar: 'bg-gray-400' },
+  ];
+
   return (
-    <AppLayout title="FLS Checking" subtitle="Manage checking / verification details">
-      <div className="space-y-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-end">
-            <div className="flex flex-wrap gap-2 items-end flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-56"
-                  placeholder="Search project, name, unit..." value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(1); }} />
+    <FlsLayout title="FLS Checking" subtitle="Manage checking / verification details">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {stats.map((s, i) => (
+          <div key={i} className="bg-white border border-brand-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow shadow-sm">
+            <div className={`h-1 ${s.bar}`} />
+            <div className="p-4 flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>
+                <s.icon className={`w-4 h-4 ${s.color}`} />
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 font-medium">From</label>
-                <input type="date" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+              <div>
+                <p className="text-[10px] text-brand-500 uppercase tracking-widest font-semibold">{s.label}</p>
+                <p className={`text-2xl font-bold ${s.color} leading-tight mt-0.5`}>{s.value}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 font-medium">To</label>
-                <input type="date" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
-              </div>
-              {(dateFrom || dateTo) && (
-                <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1); }}
-                  className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50">
-                  Clear Dates
-                </button>
-              )}
             </div>
           </div>
+        ))}
+      </div>
+
+      <FlsFilter
+        search={search} onSearchChange={v => { setSearch(v); resetPage(); }}
+        unitNo={unitNo} onUnitNoChange={v => { setUnitNo(v); resetPage(); }}
+        flsAgent={flsAgent} onFlsAgentChange={v => { setFlsAgent(v); resetPage(); }}
+        customerName={customerName} onCustomerNameChange={v => { setCustomerName(v); resetPage(); }}
+        dateFrom={dateFrom} onDateFromChange={v => { setDateFrom(v); resetPage(); }}
+        dateTo={dateTo} onDateToChange={v => { setDateTo(v); resetPage(); }}
+        onExport={handleExport} exporting={exporting}
+        theme="green"
+      />
+
+      <div className="bg-white rounded-xl border border-brand-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-brand-800 border-b border-brand-700">
+                <th className="text-left px-4 py-3 text-[10px] font-bold text-brand-200 uppercase tracking-widest w-10">#</th>
+                {TABLE_COLUMNS.map(col => (
+                  <th key={col.key} className="text-left px-4 py-3 text-[10px] font-bold text-brand-200 uppercase tracking-widest whitespace-nowrap">{col.label}</th>
+                ))}
+                <th className="text-left px-4 py-3 text-[10px] font-bold text-brand-200 uppercase tracking-widest">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-100">
+              {loading ? (
+                <tr><td colSpan={TABLE_COLUMNS.length + 2} className="py-20 text-center">
+                  <div className="flex items-center justify-center gap-2.5 text-gray-400">
+                    <div className="w-4 h-4 border-2 border-gray-200 border-t-emerald-500 rounded-full animate-spin" />
+                    <span className="text-sm">Loading records...</span>
+                  </div>
+                </td></tr>
+              ) : data.length === 0 ? (
+                <tr><td colSpan={TABLE_COLUMNS.length + 2} className="py-20 text-center">
+                  <p className="text-gray-400 text-sm">No records found</p>
+                  <p className="text-gray-300 text-xs mt-1">Try adjusting your filters</p>
+                </td></tr>
+              ) : data.map((row, idx) => (
+                <tr key={row.id} className="hover:bg-brand-50 transition-colors group">
+                  <td className="px-4 py-3.5 text-brand-400 tabular-nums text-xs font-mono">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                  {TABLE_COLUMNS.map(col => (
+                    <td key={col.key} className="px-4 py-3.5 text-brand-800 whitespace-nowrap text-sm">
+                      {col.isBadge ? <VerifyBadge value={row[col.key]} /> : (row[col.key] ?? <span className="text-gray-300">—</span>)}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => router.push(`/fls-booking-portal/checking/${row.id}/edit`)}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Edit">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(row)} disabled={deleting === row.id}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30" title="Delete">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">#</th>
-                  {TABLE_COLUMNS.map(col => (
-                    <th key={col.key} className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider whitespace-nowrap">{col.label}</th>
-                  ))}
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr><td colSpan={TABLE_COLUMNS.length + 2} className="text-center py-12 text-gray-400">Loading...</td></tr>
-                ) : data.length === 0 ? (
-                  <tr><td colSpan={TABLE_COLUMNS.length + 2} className="text-center py-12 text-gray-400">No records found</td></tr>
-                ) : data.map((row, idx) => (
-                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-gray-500">{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                    {TABLE_COLUMNS.map(col => (
-                      <td key={col.key} className="px-4 py-3 text-gray-800 whitespace-nowrap">
-                        {col.isBadge ? <VerifyBadge value={row[col.key]} /> : (row[col.key] ?? '-')}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => router.push(`/fls-booking-portal/checking/${row.id}/edit`)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(row)} disabled={deleting === row.id}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-40" title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-            <span className="text-sm text-gray-500">Total: <strong>{total}</strong> records</span>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+        <div className="px-5 py-3 border-t border-brand-100 bg-brand-50 flex items-center justify-between">
+          <span className="text-xs text-brand-500">
+            Showing <span className="text-gray-700 font-medium">{data.length}</span> of{' '}
+            <span className="text-gray-700 font-medium">{total}</span> records
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-brand-200 hover:bg-brand-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-sm">
+              <ChevronLeft className="w-4 h-4 text-gray-500" />
+            </button>
+            <span className="text-xs text-brand-500 px-2">
+              <span className="text-gray-800 font-semibold">{page}</span>
+              <span className="text-gray-300 mx-1">/</span>
+              <span className="text-gray-500">{totalPages}</span>
+            </span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-brand-200 hover:bg-brand-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-sm">
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            </button>
           </div>
         </div>
       </div>
-    </AppLayout>
+    </FlsLayout>
   );
 }
