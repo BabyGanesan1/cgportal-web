@@ -9,9 +9,10 @@ interface AppLayoutProps {
   children: React.ReactNode;
   title: string;
   subtitle?: string;
+  headerActions?: React.ReactNode;
 }
 
-export default function AppLayout({ children, title, subtitle }: AppLayoutProps) {
+export default function AppLayout({ children, title, subtitle, headerActions }: AppLayoutProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -98,7 +99,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
     <div className="flex h-screen bg-brand-50 overflow-hidden">
       {shouldShowSidebar && <Sidebar />}
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <Header title={title} subtitle={subtitle} isAdmin={isAdmin} />
+        <Header title={title} subtitle={subtitle} isAdmin={isAdmin} headerActions={headerActions} />
         <div className={`flex-1 overflow-y-auto ${isAdmin ? 'p-6' : 'p-0 md:p-10'}`}>
           <div className={isAdmin ? '' : 'max-w-7xl mx-auto w-full'}>
             {children}

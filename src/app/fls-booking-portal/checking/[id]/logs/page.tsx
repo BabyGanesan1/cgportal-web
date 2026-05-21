@@ -2,7 +2,7 @@
 import { useParams } from 'next/navigation';
 import FlsLogsPage from '../../../_components/FlsLogsPage';
 
-export default function BookingLogsPage() {
+export default function CheckingLogsPage() {
   const { id } = useParams<{ id: string }>();
-  return <FlsLogsPage type="booking" id={id} />;
+  return <FlsLogsPage type="checking" id={id} />;
 }

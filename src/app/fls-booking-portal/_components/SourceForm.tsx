@@ -14,6 +14,7 @@ const HALF = 'col-span-1 md:col-span-2';
 
 const SOURCE_FIELDS = [
   'source_taken_lead', 'pushed_date', 'source', 'sub_source', 'iden_date',
+  'source_remarks', 'customer_type', 'source_customer_name',
   'sf_lead_id1', 'sf_lead1_clone', 'sf_lead_id1_owner', 'pushed_date_lead1', 'sf_lead1_walkin_date', 'walkin_project_lead1',
   'sf_lead2', 'sf_lead2_clone', 'sf_lead_id2_owner', 'pushed_date_lead2', 'sf_lead2_walkin_date', 'walkin_project_lead2',
   'sf_lead3', 'sf_lead3_clone', 'sf_lead_id3_owner', 'pushed_date_lead3', 'sf_lead3_walkin_date', 'walkin_project_lead3',
@@ -31,7 +32,8 @@ interface Props {
 export default function SourceForm({ initialValues, onSubmit, saving, onCancel }: Props) {
   const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: initialValues || {} });
   const [attachedFiles, setAttachedFiles] = useState<{name: string; path: string; size: number}[]>([]);
-  const verifyStatus = watch('source_verify_status');
+  const verifyStatus     = watch('source_verify_status');
+  const checkingVerified = initialValues?.checking_verify_status === 'verified';
 
   useEffect(() => {
     if (initialValues) {
@@ -51,19 +53,17 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
   const txt = (name: string, label: string, cls = '') => (
     <div key={name} className={cls}>
       <label className={LABEL}>{label}</label>
-      <input {...register(name)} type="text" className={INPUT} placeholder={label} />
+      <input {...register(name)} type="text" className={checkingVerified ? DISABLED : INPUT} placeholder={label} disabled={checkingVerified} />
     </div>
   );
 
   const dt = (name: string, label: string, cls = '') => (
     <div key={name} className={cls}>
       <label className={LABEL}>{label}</label>
-      <DarkDatePicker
-        value={watch(name) || ''}
-        onChange={v => setValue(name, v, { shouldDirty: true })}
-        placeholder={label}
-        accent="purple"
-      />
+      {checkingVerified
+        ? <input {...register(name)} disabled className={DISABLED} />
+        : <DarkDatePicker value={watch(name) || ''} onChange={v => setValue(name, v, { shouldDirty: true })} placeholder={label} accent="purple" />
+      }
     </div>
   );
 
@@ -91,6 +91,12 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
 
   return (
     <form onSubmit={handleSubmit(submit)}>
+      {checkingVerified && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+          <span className="font-semibold">Locked:</span>
+          <span>Checking is verified — source fields are read-only.</span>
+        </div>
+      )}
       <div className="bg-white rounded-xl border border-brand-100 shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
 
@@ -108,12 +114,20 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
             <input {...register('name')} disabled className={DISABLED} />
           </div>
           <div>
-            <label className={LABEL}>FLS ID</label>
-            <input {...register('fls_id')} disabled className={DISABLED} />
+            <label className={LABEL}>AVP ID</label>
+            <input {...register('avp_id')} disabled className={DISABLED} />
           </div>
           <div>
-            <label className={LABEL}>FLS Name</label>
-            <input {...register('fls_name')} disabled className={DISABLED} />
+            <label className={LABEL}>AVP Name</label>
+            <input {...register('avp_name')} disabled className={DISABLED} />
+          </div>
+          <div>
+            <label className={LABEL}>Booking Form Date</label>
+            <input {...register('booking_form_date')} disabled className={DISABLED} />
+          </div>
+          <div>
+            <label className={LABEL}>Login Counter Date</label>
+            <input {...register('login_counter_date')} disabled className={DISABLED} />
           </div>
 
           {sec('Source Details')}
@@ -122,6 +136,24 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {txt('source', 'Source')}
           {txt('sub_source', 'Sub Source')}
           {dt('iden_date', 'Iden Date')}
+
+          <div className={FULL}>
+            <label className={LABEL}>Source Remarks</label>
+            <textarea {...register('source_remarks')} rows={2}
+              className={(checkingVerified ? DISABLED : INPUT) + ' resize-none'}
+              placeholder="Source Remarks" disabled={checkingVerified} />
+          </div>
+
+          {/* Customer Type and Name */}
+          <div>
+            <label className={LABEL}>Customer Type</label>
+            <select {...register('customer_type')} className={checkingVerified ? DISABLED : INPUT} disabled={checkingVerified}>
+              <option value="">Select Type</option>
+              <option value="Indian">Indian</option>
+              <option value="NRI">NRI</option>
+            </select>
+          </div>
+          {txt('source_customer_name', 'Customer Name (Source)', HALF)}
 
           {sec('SF Lead 1')}
           {txt('sf_lead_id1', 'SF Lead ID 1')}
@@ -154,26 +186,26 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
 
           {sec('Walk-in & Verification')}
           {dt('walk_in_date', 'Walk In Date')}
-          <div className={HALF}>
-            <label className={LABEL}>Lead Remarks</label>
-            <textarea {...register('lead_remarks')} rows={2} className={INPUT + ' resize-none'} placeholder="Lead Remarks" />
-          </div>
 
           <div>
             <label className={LABEL}>Verify Status</label>
-            <select {...register('source_verify_status')} className={INPUT}>
+            <select {...register('source_verify_status')} className={checkingVerified ? DISABLED : INPUT} disabled={checkingVerified}>
               <option value="">Select Status</option>
               <option value="hold">Hold</option>
               <option value="verified">Verified</option>
+              <option value="canceled">Canceled</option>
             </select>
           </div>
 
-          {verifyStatus === 'hold' && (
-            <div className={FULL}>
-              <label className={LABEL}>Lead Remarks <span className="text-red-400">*</span></label>
-              <textarea {...register('lead_remarks')} rows={2} className={INPUT + ' resize-none'} placeholder="Lead Remarks (required for Hold)" />
-            </div>
-          )}
+          <div className={HALF}>
+            <label className={LABEL}>
+              Lead Remarks{(verifyStatus === 'hold' || verifyStatus === 'canceled') && <span className="text-red-400 ml-1">*</span>}
+            </label>
+            <textarea {...register('lead_remarks')} rows={2}
+              className={(checkingVerified ? DISABLED : INPUT) + ' resize-none'}
+              placeholder={verifyStatus === 'canceled' ? 'Cancellation reason (required)' : verifyStatus === 'hold' ? 'Hold reason (required)' : 'Lead Remarks'}
+              disabled={checkingVerified} />
+          </div>
 
           {sec('Booking Info', '(read only)')}
           {dis('region', 'Region')}
@@ -207,7 +239,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dis('avp_id', 'AVP ID')}
           {dis('avp_name', 'AVP Name')}
           {dis('scheme', 'Scheme')}
-          {dis('customer_mail', 'Customer Mail')}
+          {dis('acknowledgement', 'Acknowledgement')}
 
           {sec('PDC Details', '(read only)')}
           {dis('pdc_status', 'PDC Status')}

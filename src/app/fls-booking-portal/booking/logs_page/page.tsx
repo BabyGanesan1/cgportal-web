@@ -2,8 +2,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Clock, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
-import FlsLayout from '../../../_components/FlsLayout';
-import api from '../../../../../lib/api';
+import FlsLayout from '../../_components/FlsLayout';
+import api from '../../../../lib/api';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;

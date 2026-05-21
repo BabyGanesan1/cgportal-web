@@ -8,7 +8,16 @@ import CheckingForm from '../../../_components/CheckingForm';
 import api from '../../../../../lib/api';
 import toast from 'react-hot-toast';
 
-const DATE_FIELDS = ['login_counter_date'];
+const DATE_FIELDS = [
+  'login_counter_date', 'pushed_date', 'iden_date',
+  'booking_form_date', 'bf_received_date', 'hold_date',
+  'file_transfer_date', 'lbc_date', 'pdc_date', 'cheque_date',
+  'sent_for_cit_verification_date', 'verified_date',
+  'pushed_date_lead1', 'sf_lead1_walkin_date',
+  'pushed_date_lead2', 'sf_lead2_walkin_date',
+  'pushed_date_lead3', 'sf_lead3_walkin_date',
+  'walk_in_date',
+];
 
 function toDateStr(val: any): string {
   if (!val) return '';
