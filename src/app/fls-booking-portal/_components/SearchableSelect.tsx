@@ -1,129 +1,228 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
-import { Search, ChevronDown, X } from 'lucide-react';
 
-export interface SelectOpt { label: string; value: string }
+import React from 'react';
+import Select, { StylesConfig } from 'react-select';
 
-interface Props {
+interface Option {
+  label: string;
   value: string;
-  onChange: (v: string) => void;
-  options: SelectOpt[];
-  placeholder: string;
-  width?: string;
-  isDark?: boolean;
-  className?: string;
-  disabled?: boolean;
-  hasError?: boolean;
 }
 
-export default function SearchableSelect({
-  value, onChange, options, placeholder,
-  width, isDark = false, className = '', disabled = false, hasError = false,
+interface Props {
+  label?: string;
+  options: Option[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  isDark?: boolean;
+  hasError?: boolean;
+  className?: string;
+}
+
+const customSelectStyles = (
+  disabled = false,
+  isDark = false,
+  hasError = false
+): StylesConfig<Option, false> => ({
+  control: (base, state) => ({
+    ...base,
+    minHeight: '42px',
+    borderRadius: '0.75rem',
+    transition: 'all 0.2s ease',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+
+    backgroundColor: disabled
+      ? isDark
+        ? '#0a1827'
+        : '#f8fafc'
+      : isDark
+        ? '#0d1f33'
+        : '#ffffff',
+
+    borderColor: hasError
+      ? isDark
+        ? '#ef4444'
+        : '#f87171'
+      : state.isFocused
+        ? isDark
+          ? '#3b82f6'
+          : '#64748b'
+        : isDark
+          ? '#1e3a55'
+          : '#cbd5e1',
+
+    boxShadow: state.isFocused
+      ? isDark
+        ? '0 0 0 1px #3b82f6'
+        : '0 0 0 1px #64748b'
+      : 'none',
+
+    '&:hover': {
+      borderColor: isDark ? '#3b82f6' : '#64748b',
+    },
+  }),
+
+  valueContainer: (base) => ({
+    ...base,
+    padding: '0 12px',
+  }),
+
+  input: (base) => ({
+    ...base,
+    color: isDark ? '#e2e8f0' : '#1e293b',
+    fontSize: '14px',
+  }),
+
+  placeholder: (base) => ({
+    ...base,
+    color: isDark ? '#64748b' : '#94a3b8',
+    fontSize: '14px',
+  }),
+
+  singleValue: (base) => ({
+    ...base,
+    color: isDark ? '#f8fafc' : '#1e293b',
+    fontSize: '14px',
+    fontWeight: 500,
+  }),
+
+  menu: (base) => ({
+    ...base,
+    zIndex: 9999,
+    borderRadius: '0.75rem',
+    overflow: 'hidden',
+
+    backgroundColor: isDark ? '#10243a' : '#ffffff',
+
+    border: isDark
+      ? '1px solid #1e3a55'
+      : '1px solid #e2e8f0',
+
+    boxShadow: isDark
+      ? '0 10px 25px rgba(0,0,0,0.35)'
+      : '0 10px 25px rgba(0,0,0,0.08)',
+  }),
+
+  menuList: (base) => ({
+    ...base,
+    padding: '6px',
+    backgroundColor: isDark ? '#10243a' : '#ffffff',
+  }),
+
+  option: (base, state) => ({
+    ...base,
+    borderRadius: '0.5rem',
+    marginBottom: '2px',
+    padding: '10px 12px',
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+
+    backgroundColor: state.isSelected
+      ? isDark
+        ? '#1a3450'
+        : '#0f172a'
+      : state.isFocused
+        ? isDark
+          ? '#162d46'
+          : '#f1f5f9'
+        : isDark
+          ? '#10243a'
+          : '#ffffff',
+
+    color: state.isSelected
+      ? '#ffffff'
+      : isDark
+        ? '#cbd5e1'
+        : '#1e293b',
+  }),
+
+  dropdownIndicator: (base, state) => ({
+    ...base,
+    color: state.isFocused
+      ? isDark
+        ? '#60a5fa'
+        : '#64748b'
+      : isDark
+        ? '#64748b'
+        : '#94a3b8',
+
+    transition: 'all 0.2s ease',
+  }),
+
+  indicatorSeparator: () => ({
+    display: 'none',
+  }),
+
+  clearIndicator: (base) => ({
+    ...base,
+    color: isDark ? '#64748b' : '#94a3b8',
+
+    '&:hover': {
+      color: '#ef4444',
+    },
+  }),
+});
+
+export default function CommonSelect({
+  label,
+  options,
+  value,
+  onChange,
+  placeholder = 'Select',
+  disabled = false,
+  isDark = false,
+  hasError = false,
+  className = '',
 }: Props) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const filtered = query
-    ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
-    : options;
-  const selectedLabel = options.find(o => o.value === value)?.label ?? '';
-
-  const borderCol = hasError
-    ? (isDark ? 'border-red-500' : 'border-red-400')
-    : (isDark ? 'border-[#1e3a55]' : 'border-brand-200');
-
-  const disabledWrapper = isDark
-    ? 'bg-[#0a1827] border-[#142233] cursor-not-allowed opacity-60'
-    : 'bg-brand-50 border-brand-100 cursor-not-allowed opacity-60';
-
-  const inputCls = isDark ? 'text-slate-200 placeholder-slate-500' : 'text-brand-800 placeholder-brand-300';
-  const iconCls = isDark ? 'text-slate-500' : 'text-brand-400';
-  const clearCls = isDark ? 'text-slate-500 hover:text-slate-200' : 'text-brand-300 hover:text-brand-600';
-  const bgCls = isDark ? 'bg-[#0d1f33]' : 'bg-white';
-  const dividerCls = isDark ? 'border-[#1e3a55]' : 'border-brand-200';
-  const emptyTxt = isDark ? 'text-slate-500' : 'text-brand-400';
-  const itemBase = isDark
-    ? 'text-slate-300 hover:bg-[#162d46] hover:text-white'
-    : 'text-brand-700 hover:bg-brand-50 hover:text-brand-900';
-  const itemSel = isDark
-    ? 'text-white font-medium bg-[#1a3450]'
-    : 'text-brand-900 font-medium bg-brand-50';
-
-  const wrapperCls = disabled
-    ? `border rounded-lg transition-all ${disabledWrapper}`
-    : `border transition-all ${bgCls} ${borderCol} ${open ? 'rounded-t-lg' : 'rounded-lg'}`;
-
   return (
-    <div ref={ref} className={`relative ${width ?? 'w-full'} ${className}`}>
-      <style>{`.fls-search-input:focus { outline: none !important; box-shadow: none !important; } .fls-search-input:focus-visible { outline: none !important; box-shadow: none !important; }`}</style>
-      <div className={wrapperCls}>
-        {/* Trigger row — clicking anywhere opens dropdown */}
-        <div
-          className="flex items-center cursor-pointer"
-          onClick={() => {
-            if (!disabled) {
-              setQuery('');
-              setOpen(true);
-              setTimeout(() => inputRef.current?.focus(), 0);
-            }
-          }}
+    <div className={className}>
+      {label && (
+        <label
+          className={`block text-xs font-medium mb-1 ${isDark
+              ? 'text-slate-300'
+              : 'text-brand-700'
+            }`}
         >
-          <Search className={`w-3.5 h-3.5 ml-2.5 shrink-0 ${iconCls}`} />
-          <input
-            ref={inputRef}
-            className={`fls-search-input flex-1 px-2 py-2 bg-transparent text-sm outline-none border-none ring-0 min-w-0 ${inputCls} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-            style={{ boxShadow: 'none', WebkitAppearance: 'none', outline: 'none', outlineOffset: '0' }}
-            placeholder={placeholder}
-            value={open ? query : selectedLabel}
-            disabled={disabled}
-            readOnly={!open}
-            onChange={e => { setQuery(e.target.value); }}
-          />
-          {value && !open && !disabled && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onChange(''); setQuery(''); }}
-              className={`pr-1 shrink-0 ${clearCls}`}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <ChevronDown className={`w-3.5 h-3.5 mr-2 shrink-0 transition-transform ${open ? 'rotate-180' : ''} ${iconCls}`} />
-        </div>
+          {label}
+        </label>
+      )}
 
-        {/* Dropdown list — inside same bordered wrapper */}
-        {open && !disabled && (
-          <>
-            <div className={`border-t ${dividerCls}`} />
-            <div className="max-h-56 overflow-y-auto rounded-b-lg">
-              {filtered.length === 0 ? (
-                <div className={`px-4 py-3 text-sm text-center ${emptyTxt}`}>No matches</div>
-              ) : (
-                filtered.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => { onChange(opt.value); setOpen(false); setQuery(''); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors last:rounded-b-lg ${value === opt.value ? itemSel : itemBase}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))
-              )}
-            </div>
-          </>
+      <Select
+        options={options}
+        value={
+          options.find(
+            (option) => option.value === value
+          ) || null
+        }
+        onChange={(selected) =>
+          onChange(selected?.value || '')
+        }
+        placeholder={placeholder}
+        isDisabled={disabled}
+        isSearchable
+        classNamePrefix="react-select"
+        styles={customSelectStyles(
+          disabled,
+          isDark,
+          hasError
         )}
-      </div>
+        theme={(theme) => ({
+          ...theme,
+          borderRadius: 12,
+          colors: {
+            ...theme.colors,
+            primary: isDark
+              ? '#3b82f6'
+              : '#64748b',
+
+            primary25: isDark
+              ? '#162d46'
+              : '#f1f5f9',
+          },
+        })}
+      />
     </div>
   );
 }

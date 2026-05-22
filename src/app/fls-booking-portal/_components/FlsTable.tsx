@@ -132,18 +132,23 @@ function StatusBadge({ value }: { value: string }) {
 }
 
 function VerifyBadge({ value, remarks }: { value: string; remarks?: string }) {
-  if (!value) return <span className="text-gray-400 text-xs">—</span>;
+  if (!value) return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide bg-gray-100 text-gray-500 border border-gray-200">
+      Yet to Verify
+    </span>
+  );
   const cls = value === 'verified'
     ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
     : value === 'canceled'
       ? 'bg-red-100 text-red-700 border border-red-200'
       : 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+  const showRemarks = value !== 'verified' && remarks;
   return (
     <div className="relative group/vbadge inline-block">
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold capitalize tracking-wide ${cls}`}>
         {value}
       </span>
-      {remarks && (
+      {showRemarks && (
         <>
           <p className="text-[10px] text-gray-400 mt-0.5 max-w-[150px] truncate">{remarks}</p>
           <div className="absolute bottom-full left-0 mb-1 z-50 hidden group-hover/vbadge:block pointer-events-none">
@@ -194,7 +199,7 @@ export default function FlsTable({
 
   return (
     <div className="bg-white rounded-xl border border-brand-100 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}>
         <table className="text-sm border-collapse" style={{ minWidth: '10000px', width: '100%' }}>
           <thead>
             <tr className="bg-brand-800 border-b border-brand-700">

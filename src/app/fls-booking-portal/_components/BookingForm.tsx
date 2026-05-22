@@ -5,19 +5,47 @@ import { X, Upload, FileText, Eye, Download } from 'lucide-react';
 import api from '../../../lib/api';
 import toast from 'react-hot-toast';
 import DarkDatePicker from './DarkDatePicker';
+import CommonSelect from './CommonSelect';
+import { useFlsTheme } from './FlsThemeContext';
 
-const INPUT = 'w-full bg-white border border-brand-200 rounded-lg px-3 py-2 text-sm text-brand-800 placeholder-brand-300 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-colors';
-const INPUT_ERR = 'w-full bg-white border border-red-400 rounded-lg px-3 py-2 text-sm text-brand-800 placeholder-brand-300 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-colors';
-const DISABLED = 'w-full bg-brand-50 border border-brand-100 rounded-lg px-3 py-2 text-sm text-brand-400 cursor-not-allowed';
-const LABEL = 'block text-xs font-medium text-brand-700 mb-1';
-const SEC = 'col-span-1 md:col-span-2 lg:col-span-4 pt-4 mt-1 border-t border-brand-100 first:pt-0 first:mt-0 first:border-t-0';
+// ── Light / Dark class helpers ──────────────────────────────────────────────
+function makeClasses(isDark: boolean) {
+  const INPUT = isDark
+    ? 'w-full bg-[#0d1f33] border border-[#1e3a55] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors'
+    : 'w-full bg-white border border-brand-200 rounded-lg px-3 py-2 text-sm text-brand-800 placeholder-brand-300 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-colors';
+
+  const INPUT_ERR = isDark
+    ? 'w-full bg-[#0d1f33] border border-red-500 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-colors'
+    : 'w-full bg-white border border-red-400 rounded-lg px-3 py-2 text-sm text-brand-800 placeholder-brand-300 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-colors';
+
+  const DISABLED = isDark
+    ? 'w-full bg-[#0a1827] border border-[#1e3a55] rounded-lg px-3 py-2 text-sm text-slate-500 cursor-not-allowed'
+    : 'w-full bg-brand-50 border border-brand-100 rounded-lg px-3 py-2 text-sm text-brand-400 cursor-not-allowed';
+
+  const LABEL = isDark
+    ? 'block text-xs font-medium text-slate-300 mb-1'
+    : 'block text-xs font-medium text-brand-700 mb-1';
+
+  const CARD = isDark
+    ? 'bg-[#0d1f33] rounded-xl border border-[#1e3a55] shadow-sm p-6'
+    : 'bg-white rounded-xl border border-brand-100 shadow-sm p-6';
+
+  const SEC_BORDER = isDark ? 'border-[#1e3a55]' : 'border-brand-100';
+  const SEC_TITLE = isDark ? 'text-slate-400' : 'text-brand-700';
+
+  const WARN_BG = isDark ? 'bg-amber-900/30 border-amber-700 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700';
+
+  return { INPUT, INPUT_ERR, DISABLED, LABEL, CARD, SEC_BORDER, SEC_TITLE, WARN_BG };
+}
+
+const SEC = 'col-span-1 md:col-span-2 lg:col-span-4 pt-4 mt-1 border-t first:pt-0 first:mt-0 first:border-t-0';
 const FULL = 'col-span-1 md:col-span-2 lg:col-span-4';
 const HALF = 'col-span-1 md:col-span-2';
 
 const DEFAULTS = {
   net_sales: 'L',
   gross_sales: 'L',
-  booking_form_status: 'L',
+  booking_form_status: 'N',
   form_type: 'hard copy',
 };
 
@@ -33,8 +61,7 @@ const REQUIRED_FIELDS = new Set([
   'booking_amount', 'cheque_date', 'cheque_no', 'bank_name',
   'sent_for_cit_verification_date', 'sf_record_id',
   'status_of_cit_verification', 'verified_by_whom', 'verified_date',
-  'phone_number_1', 'phone_number_2', 'phone_number_3', 'phone_number_4',
-  'mail_id_1', 'mail_id_2', 'mail_id_3', 'mail_id_4',
+  'phone_number_1',
 ]);
 
 const DATE_REQUIRED: Record<string, string> = {
@@ -57,7 +84,19 @@ interface Props {
   onCancel: () => void;
 }
 
+// ── Select option lists ─────────────────────────────────────────────────────
+const BOOKING_STATUS_OPTIONS = [{ value: 'N', label: 'N' }, { value: 'R', label: 'R' }];
+const FORM_TYPE_OPTIONS = [{ value: 'hard copy', label: 'Hard Copy' }];
+const ACK_OPTIONS = [
+  { value: 'mail', label: 'Mail' },
+  { value: 'signed', label: 'Signed' },
+  { value: 'non-acknowledgement', label: 'Non-Acknowledgement' },
+];
+
 export default function BookingForm({ initialValues, onSubmit, saving, onCancel }: Props) {
+  const { isDark } = useFlsTheme();
+  const cls = makeClasses(isDark);
+
   const { register, handleSubmit, reset, watch, setValue, setError, clearErrors, formState: { errors } } = useForm({
     defaultValues: { ...DEFAULTS, ...(initialValues || {}) },
   });
@@ -65,14 +104,14 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const acknowledgement  = watch('acknowledgement');
+  const acknowledgement = watch('acknowledgement');
   const checkingVerified = initialValues?.checking_verify_status === 'verified';
 
   useEffect(() => {
     if (initialValues) {
       reset({ ...DEFAULTS, ...initialValues });
       if (initialValues.attachments) {
-        try { setAttachedFiles(JSON.parse(initialValues.attachments)); } catch {}
+        try { setAttachedFiles(JSON.parse(initialValues.attachments)); } catch { }
       }
       if (initialValues.fls_id) lookupMasterName('fls', initialValues.fls_id, 'fls_name');
       if (initialValues.mgr_id) lookupMasterName('mgr', initialValues.mgr_id, 'mgr_name');
@@ -107,7 +146,6 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
       }
     }
     if (hasDateError) return;
-
     const clean: any = {};
     Object.entries(data).forEach(([k, v]) => { clean[k] = v === '' ? null : v; });
     clean.attachments = attachedFiles.length ? JSON.stringify(attachedFiles) : null;
@@ -124,20 +162,11 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
     }
   };
 
-  const upsertMaster = async (
-    endpoint: string,
-    idField: string,
-    nameField: string,
-    idValue: string,
-    nameValue: string
-  ) => {
+  const upsertMaster = async (endpoint: string, idField: string, nameField: string, idValue: string, nameValue: string) => {
     if (!idValue?.trim() || !nameValue?.trim()) return;
     try {
-      await api.post(`/fls-masters/${endpoint}/upsert`, {
-        [idField]: idValue.trim(),
-        [nameField]: nameValue.trim(),
-      });
-    } catch {}
+      await api.post(`/fls-masters/${endpoint}/upsert`, { [idField]: idValue.trim(), [nameField]: nameValue.trim() });
+    } catch { }
   };
 
   const reqStar = (name: string) =>
@@ -148,13 +177,14 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
     return e ? <p className="text-xs text-red-500 mt-0.5">{e.message}</p> : null;
   };
 
-  const iCls = (name: string) => checkingVerified ? DISABLED : ((errors as any)[name] ? INPUT_ERR : INPUT);
+  const iCls = (name: string) =>
+    checkingVerified ? cls.DISABLED : ((errors as any)[name] ? cls.INPUT_ERR : cls.INPUT);
 
-  const f = (name: string, label: string, cls = '') => {
+  const f = (name: string, label: string, colCls = '') => {
     const req = REQUIRED_FIELDS.has(name);
     return (
-      <div key={name} className={cls}>
-        <label className={LABEL}>{label}{reqStar(name)}</label>
+      <div key={name} className={colCls}>
+        <label className={cls.LABEL}>{label}{reqStar(name)}</label>
         <input
           {...register(name, req ? { required: `${label} is required` } : {})}
           type="text"
@@ -167,34 +197,34 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
     );
   };
 
-  const fd = (name: string, label: string, cls = '') => {
+  const fd = (name: string, label: string, colCls = '') => {
     const err = (errors as any)[name];
     return (
-      <div key={name} className={cls}>
-        <label className={LABEL}>{label}{reqStar(name)}</label>
+      <div key={name} className={colCls}>
+        <label className={cls.LABEL}>{label}{reqStar(name)}</label>
         {checkingVerified
-          ? <input {...register(name)} disabled className={DISABLED} />
+          ? <input {...register(name)} disabled className={cls.DISABLED} />
           : <DarkDatePicker
-              value={watch(name) || ''}
-              onChange={v => { setValue(name, v, { shouldDirty: true }); if (v) clearErrors(name as any); }}
-              placeholder={label}
-              accent="blue"
-            />
+            value={watch(name) || ''}
+            onChange={v => { setValue(name, v, { shouldDirty: true }); if (v) clearErrors(name as any); }}
+            placeholder={label}
+            accent="blue"
+          />
         }
         {err && <p className="text-xs text-red-500 mt-0.5">{err.message}</p>}
       </div>
     );
   };
 
-  const fa = (name: string, label: string, cls = FULL) => {
+  const fa = (name: string, label: string, colCls = FULL) => {
     const req = REQUIRED_FIELDS.has(name);
     return (
-      <div key={name} className={cls}>
-        <label className={LABEL}>{label}{reqStar(name)}</label>
+      <div key={name} className={colCls}>
+        <label className={cls.LABEL}>{label}{reqStar(name)}</label>
         <textarea
           {...register(name, req ? { required: `${label} is required` } : {})}
           rows={2}
-          className={(checkingVerified ? DISABLED : ((errors as any)[name] ? INPUT_ERR : INPUT)) + ' resize-none'}
+          className={(checkingVerified ? cls.DISABLED : ((errors as any)[name] ? cls.INPUT_ERR : cls.INPUT)) + ' resize-none'}
           placeholder={label}
           disabled={checkingVerified}
         />
@@ -204,20 +234,54 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
   };
 
   const sec = (title: string) => (
-    <div className={SEC}>
-      <h3 className="text-xs font-semibold text-brand-700 uppercase tracking-wider">{title}</h3>
+    <div className={`${SEC} ${cls.SEC_BORDER}`}>
+      <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>{title}</h3>
     </div>
   );
+
+  // CommonSelect wrapper — respects checkingVerified lock, hasError, and theme automatically
+  const sel = (
+    name: string,
+    label: string,
+    options: { value: string; label: string }[],
+    colCls = ''
+  ) => {
+    const req = REQUIRED_FIELDS.has(name);
+    const err = (errors as any)[name];
+    return (
+      <div key={name} className={colCls}>
+        <CommonSelect
+          label={`${label}${req ? '' : ''}`}
+          options={options}
+          value={watch(name) || ''}
+          onChange={v => {
+            setValue(name, v, { shouldDirty: true });
+            if (v && req) clearErrors(name as any);
+          }}
+          placeholder={`Select ${label}`}
+          disabled={checkingVerified}
+          hasError={!!err}
+        />
+        {/* required star in label is handled below */}
+        {req && (
+          // Inject * into the label rendered by CommonSelect via a sibling approach — easiest to do with a wrapper override
+          <></>
+        )}
+        {err && <p className="text-xs text-red-500 mt-0.5">{err.message}</p>}
+      </div>
+    );
+  };
 
   return (
     <form onSubmit={handleSubmit(submit)}>
       {checkingVerified && (
-        <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+        <div className={`mb-4 flex items-center gap-2 px-4 py-3 border rounded-lg text-sm ${cls.WARN_BG}`}>
           <span className="font-semibold">Locked:</span>
           <span>Checking is verified — booking fields are read-only.</span>
         </div>
       )}
-      <div className="bg-white rounded-xl border border-brand-100 shadow-sm p-6">
+
+      <div className={cls.CARD}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
 
           {sec('Project & Unit Info')}
@@ -239,29 +303,36 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {f('net_sales', 'Net Sales')}
           {f('gross_sales', 'Gross Sales')}
 
-          <div>
-            <label className={LABEL}>Booking Form Status<span className="text-red-500 ml-0.5">*</span></label>
-            <select
-              {...register('booking_form_status', { required: 'Booking Form Status is required' })}
-              className={iCls('booking_form_status')}
+          {/* Booking Form Status — CommonSelect */}
+          {f('booking_form_status', 'Booking Form Status')}
+          {/* <div>
+            <label className={cls.LABEL}>
+              Booking Form Status<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <CommonSelect
+              options={BOOKING_STATUS_OPTIONS}
+              value={watch('booking_form_status') || 'N'}
+              onChange={v => setValue('booking_form_status', v, { shouldDirty: true })}
+              placeholder="Select Status"
               disabled={checkingVerified}
-            >
-              <option value="">Select Status</option>
-              <option value="L">L</option>
-            </select>
+              hasError={!!(errors as any).booking_form_status}
+            />
             {errMsg('booking_form_status')}
-          </div>
+          </div> */}
 
+          {/* Form Type — CommonSelect */}
           <div>
-            <label className={LABEL}>Form Type<span className="text-red-500 ml-0.5">*</span></label>
-            <select
-              {...register('form_type', { required: 'Form Type is required' })}
-              className={iCls('form_type')}
+            <label className={cls.LABEL}>
+              Form Type<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <CommonSelect
+              options={FORM_TYPE_OPTIONS}
+              value={watch('form_type') || ''}
+              onChange={v => setValue('form_type', v, { shouldDirty: true })}
+              placeholder="Select Form Type"
               disabled={checkingVerified}
-            >
-              <option value="">Select Form Type</option>
-              <option value="hard copy">Hard Copy</option>
-            </select>
+              hasError={!!(errors as any).form_type}
+            />
             {errMsg('form_type')}
           </div>
 
@@ -276,74 +347,60 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {sec('FLS & Manager Info')}
 
           <div>
-            <label className={LABEL}>FLS ID<span className="text-red-500 ml-0.5">*</span></label>
+            <label className={cls.LABEL}>FLS ID<span className="text-red-500 ml-0.5">*</span></label>
             <input
               {...register('fls_id', { required: 'FLS ID is required' })}
-              type="text"
-              className={iCls('fls_id')}
-              placeholder="FLS ID"
+              type="text" className={iCls('fls_id')} placeholder="FLS ID"
               disabled={checkingVerified}
               onBlur={e => !checkingVerified && lookupMasterName('fls', e.target.value, 'fls_name')}
             />
             {errMsg('fls_id')}
           </div>
           <div>
-            <label className={LABEL}>FLS Name<span className="text-red-500 ml-0.5">*</span></label>
+            <label className={cls.LABEL}>FLS Name<span className="text-red-500 ml-0.5">*</span></label>
             <input
               {...register('fls_name', { required: 'FLS Name is required' })}
-              type="text"
-              className={iCls('fls_name')}
-              placeholder="FLS Name"
+              type="text" className={iCls('fls_name')} placeholder="FLS Name"
               disabled={checkingVerified}
               onBlur={e => !checkingVerified && upsertMaster('fls', 'fls_id', 'fls_name', watch('fls_id'), e.target.value)}
             />
             {errMsg('fls_name')}
           </div>
-
           <div>
-            <label className={LABEL}>Manager ID<span className="text-red-500 ml-0.5">*</span></label>
+            <label className={cls.LABEL}>Manager ID<span className="text-red-500 ml-0.5">*</span></label>
             <input
               {...register('mgr_id', { required: 'Manager ID is required' })}
-              type="text"
-              className={iCls('mgr_id')}
-              placeholder="Manager ID"
+              type="text" className={iCls('mgr_id')} placeholder="Manager ID"
               disabled={checkingVerified}
               onBlur={e => !checkingVerified && lookupMasterName('mgr', e.target.value, 'mgr_name')}
             />
             {errMsg('mgr_id')}
           </div>
           <div>
-            <label className={LABEL}>Manager Name<span className="text-red-500 ml-0.5">*</span></label>
+            <label className={cls.LABEL}>Manager Name<span className="text-red-500 ml-0.5">*</span></label>
             <input
               {...register('mgr_name', { required: 'Manager Name is required' })}
-              type="text"
-              className={iCls('mgr_name')}
-              placeholder="Manager Name"
+              type="text" className={iCls('mgr_name')} placeholder="Manager Name"
               disabled={checkingVerified}
               onBlur={e => !checkingVerified && upsertMaster('mgr', 'mgr_id', 'mgr_name', watch('mgr_id'), e.target.value)}
             />
             {errMsg('mgr_name')}
           </div>
-
           <div>
-            <label className={LABEL}>AVP ID<span className="text-red-500 ml-0.5">*</span></label>
+            <label className={cls.LABEL}>AVP ID<span className="text-red-500 ml-0.5">*</span></label>
             <input
               {...register('avp_id', { required: 'AVP ID is required' })}
-              type="text"
-              className={iCls('avp_id')}
-              placeholder="AVP ID"
+              type="text" className={iCls('avp_id')} placeholder="AVP ID"
               disabled={checkingVerified}
               onBlur={e => !checkingVerified && lookupMasterName('avp', e.target.value, 'avp_name')}
             />
             {errMsg('avp_id')}
           </div>
           <div>
-            <label className={LABEL}>AVP Name<span className="text-red-500 ml-0.5">*</span></label>
+            <label className={cls.LABEL}>AVP Name<span className="text-red-500 ml-0.5">*</span></label>
             <input
               {...register('avp_name', { required: 'AVP Name is required' })}
-              type="text"
-              className={iCls('avp_name')}
-              placeholder="AVP Name"
+              type="text" className={iCls('avp_name')} placeholder="AVP Name"
               disabled={checkingVerified}
               onBlur={e => !checkingVerified && upsertMaster('avp', 'avp_id', 'avp_name', watch('avp_id'), e.target.value)}
             />
@@ -351,24 +408,31 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           </div>
           {f('scheme', 'Scheme')}
 
+          {/* Acknowledgement — CommonSelect */}
           <div>
-            <label className={LABEL}>Acknowledgement<span className="text-red-500 ml-0.5">*</span></label>
-            <select
-              {...register('acknowledgement', { required: 'Acknowledgement is required' })}
-              className={iCls('acknowledgement')}
+            <label className={cls.LABEL}>
+              Acknowledgement<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <CommonSelect
+              options={ACK_OPTIONS}
+              value={watch('acknowledgement') || ''}
+              onChange={v => setValue('acknowledgement', v, { shouldDirty: true })}
+              placeholder="Select"
               disabled={checkingVerified}
-            >
-              <option value="">Select</option>
-              <option value="mail">Mail</option>
-              <option value="signed">Signed</option>
-              <option value="non-acknowledgement">Non-Acknowledgement</option>
-            </select>
+              hasError={!!(errors as any).acknowledgement}
+            />
             {errMsg('acknowledgement')}
           </div>
           {acknowledgement === 'non-acknowledgement' && (
             <div className={HALF}>
-              <label className={LABEL}>Acknowledgement Remarks</label>
-              <textarea {...register('acknowledgement_remarks')} rows={2} className={(checkingVerified ? DISABLED : INPUT) + ' resize-none'} placeholder="Acknowledgement Remarks" disabled={checkingVerified} />
+              <label className={cls.LABEL}>Acknowledgement Remarks</label>
+              <textarea
+                {...register('acknowledgement_remarks')}
+                rows={2}
+                className={(checkingVerified ? cls.DISABLED : cls.INPUT) + ' resize-none'}
+                placeholder="Acknowledgement Remarks"
+                disabled={checkingVerified}
+              />
             </div>
           )}
 
@@ -411,25 +475,34 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
 
           {sec('Description & Attachments')}
           <div className={FULL}>
-            <label className={LABEL}>Description</label>
-            <textarea {...register('description')} rows={3} className={INPUT + ' resize-none'} placeholder="Enter description or additional notes..." />
+            <label className={cls.LABEL}>Description</label>
+            <textarea
+              {...register('description')}
+              rows={3}
+              className={cls.INPUT + ' resize-none'}
+              placeholder="Enter description or additional notes..."
+            />
           </div>
 
           <div className={FULL}>
-            <label className={LABEL}>Attachments</label>
+            <label className={cls.LABEL}>Attachments</label>
             <div className="space-y-3">
               <div
                 onClick={() => !uploading && !checkingVerified && fileInputRef.current?.click()}
-                className={`border-2 border-dashed border-brand-200 rounded-xl p-5 flex flex-col items-center gap-2 transition-colors ${(uploading || checkingVerified) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-brand-400 hover:bg-brand-50'}`}
+                className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center gap-2 transition-colors
+                  ${isDark ? 'border-[#1e3a55]' : 'border-brand-200'}
+                  ${(uploading || checkingVerified) ? 'opacity-50 cursor-not-allowed' : `cursor-pointer ${isDark ? 'hover:border-blue-500 hover:bg-[#0a1827]' : 'hover:border-brand-400 hover:bg-brand-50'}`}`}
               >
-                <div className="w-10 h-10 rounded-full bg-brand-50 flex items-center justify-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? 'bg-[#0a1827]' : 'bg-brand-50'}`}>
                   {uploading
-                    ? <div className="w-5 h-5 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-                    : <Upload className="w-5 h-5 text-brand-500" />
+                    ? <div className={`w-5 h-5 border-2 rounded-full animate-spin ${isDark ? 'border-slate-600 border-t-blue-400' : 'border-brand-200 border-t-brand-600'}`} />
+                    : <Upload className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-brand-500'}`} />
                   }
                 </div>
-                <p className="text-sm text-brand-600">{uploading ? 'Uploading...' : 'Click to upload files'}</p>
-                <p className="text-xs text-brand-400">Multiple files supported · Max 50MB each</p>
+                <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-brand-600'}`}>
+                  {uploading ? 'Uploading...' : 'Click to upload files'}
+                </p>
+                <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-brand-400'}`}>Multiple files supported · Max 50MB each</p>
                 <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
               </div>
 
@@ -441,29 +514,26 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
                     const isImage = /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(file.name);
                     const iconColor = isPdf ? 'text-red-400' : isImage ? 'text-emerald-400' : 'text-blue-400';
                     return (
-                      <div key={idx} className="flex items-center gap-3 bg-white border border-brand-100 rounded-lg px-3 py-2.5 group">
-                        <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center flex-shrink-0">
+                      <div key={idx} className={`flex items-center gap-3 border rounded-lg px-3 py-2.5 group ${isDark ? 'bg-[#0a1827] border-[#1e3a55]' : 'bg-white border-brand-100'}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-[#0d1f33]' : 'bg-brand-50'}`}>
                           <FileText className={`w-4 h-4 ${iconColor}`} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-brand-800 truncate font-medium">{file.name}</p>
-                          <p className="text-xs text-brand-400 mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
+                          <p className={`text-sm truncate font-medium ${isDark ? 'text-slate-200' : 'text-brand-800'}`}>{file.name}</p>
+                          <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-brand-400'}`}>{(file.size / 1024).toFixed(1)} KB</p>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <a href={fileUrl} target="_blank" rel="noopener noreferrer"
-                            className="p-1.5 rounded-md text-slate-500 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
-                            title="View">
+                            className="p-1.5 rounded-md text-slate-500 hover:text-blue-400 hover:bg-blue-400/10 transition-colors" title="View">
                             <Eye className="w-3.5 h-3.5" />
                           </a>
                           <a href={fileUrl} download={file.name}
-                            className="p-1.5 rounded-md text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
-                            title="Download">
+                            className="p-1.5 rounded-md text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors" title="Download">
                             <Download className="w-3.5 h-3.5" />
                           </a>
                           {!checkingVerified && (
                             <button type="button" onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
-                              className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                              title="Remove">
+                              className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors" title="Remove">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           )}
@@ -480,7 +550,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
 
       <div className="mt-4 flex justify-end gap-3">
         <button type="button" onClick={onCancel}
-          className="px-5 py-2 text-sm text-brand-700 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">
+          className={`px-5 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}>
           Cancel
         </button>
         {!checkingVerified && (

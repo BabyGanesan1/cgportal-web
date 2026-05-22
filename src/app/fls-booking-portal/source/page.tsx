@@ -27,6 +27,7 @@ export default function FlsSourceListPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [extraFilters, setExtraFilters] = useState<Record<string, string>>({});
 
   const buildParams = useCallback((overridePage?: number) => {
     const params: any = {
@@ -34,11 +35,12 @@ export default function FlsSourceListPage() {
       search, unit_no: unitNo, fls_agent: flsAgent,
       mgr_agent: mgrAgent, avp_agent: avpAgent,
       customer_name: customerName, date_field: 'createdAt',
+      ...extraFilters,
     };
     if (dateFrom) params.date_from = dateFrom;
     if (dateTo)   params.date_to   = dateTo;
     return params;
-  }, [page, search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo]);
+  }, [page, search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo, extraFilters]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -120,6 +122,9 @@ export default function FlsSourceListPage() {
         dateTo={dateTo}       onDateToChange={v => { setDateTo(v); resetPage(); }}
         onExport={handleExport} exporting={exporting}
         theme="purple"
+        extraFilters={extraFilters}
+        onExtraFiltersChange={f => { setExtraFilters(f); resetPage(); }}
+        advStorageKey="fls_source_adv"
       />
 
       <FlsTable

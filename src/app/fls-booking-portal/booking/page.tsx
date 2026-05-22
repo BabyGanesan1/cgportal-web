@@ -29,6 +29,10 @@ export default function FlsBookingListPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [totalVerified, setTotalVerified] = useState(0);
+  const [totalHold, setTotalHold] = useState(0);
+  const [totalCancel, setTotalCancel] = useState(0);
+  const [extraFilters, setExtraFilters] = useState<Record<string, string>>({});
 
   const buildParams = useCallback((overridePage?: number) => {
     const params: any = {
@@ -36,11 +40,12 @@ export default function FlsBookingListPage() {
       search, unit_no: unitNo, fls_agent: flsAgent,
       mgr_agent: mgrAgent, avp_agent: avpAgent,
       customer_name: customerName, date_field: 'createdAt',
+      ...extraFilters,
     };
     if (dateFrom) params.date_from = dateFrom;
-    if (dateTo)   params.date_to   = dateTo;
+    if (dateTo) params.date_to = dateTo;
     return params;
-  }, [page, search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo]);
+  }, [page, search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo, extraFilters]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -49,6 +54,11 @@ export default function FlsBookingListPage() {
       setData(res.data.data || []);
       setTotal(res.data.pagination?.total || 0);
       setTotalPages(res.data.pagination?.totalPages || 1);
+      // Count statuses from full response summary if available, else compute from current page
+      const allData: any[] = res.data.data || [];
+      setTotalVerified(res.data.summary?.totalVerified ?? allData.filter((r: any) => r.checking_verify_status === 'verified').length);
+      setTotalHold(res.data.summary?.totalHold ?? allData.filter((r: any) => r.booking_form_status?.toLowerCase() === 'hold').length);
+      setTotalCancel(res.data.summary?.totalCancel ?? allData.filter((r: any) => r.booking_form_status?.toLowerCase() === 'cancel' || r.booking_form_status?.toLowerCase() === 'cancelled').length);
     } catch { toast.error('Failed to load booking data'); }
     finally { setLoading(false); }
   }, [buildParams]);
@@ -81,12 +91,11 @@ export default function FlsBookingListPage() {
     finally { setExporting(false); }
   };
 
-  const uniqueFls = Array.from(new Set(data.map(r => r.fls_id).filter(Boolean))).length;
   const stats = [
-    { label: 'Total Records', value: total,      icon: BarChart2, color: 'text-blue-400',    bg: 'bg-blue-500/10',  bar: 'bg-blue-500'   },
-    { label: 'This Page',     value: data.length, icon: Layers,    color: 'text-gray-500',    bg: 'bg-gray-100',     bar: 'bg-gray-400'   },
-    { label: 'Unique FLS',    value: uniqueFls,   icon: Users,     color: 'text-emerald-600', bg: 'bg-emerald-50',   bar: 'bg-emerald-500'},
-    { label: 'Total Pages',   value: totalPages,  icon: FileText,  color: 'text-violet-600',  bg: 'bg-violet-50',    bar: 'bg-violet-500' },
+    { label: 'Total Booking', value: total, icon: BarChart2, color: 'text-blue-400', bg: 'bg-blue-500/10', bar: 'bg-blue-500' },
+    { label: 'Total Booking Verified', value: totalVerified, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500' },
+    { label: 'Total Booking Hold', value: totalHold, icon: Layers, color: 'text-yellow-600', bg: 'bg-yellow-50', bar: 'bg-yellow-500' },
+    { label: 'Total Booking Canceled', value: totalCancel, icon: FileText, color: 'text-red-500', bg: 'bg-red-50', bar: 'bg-red-500' },
   ];
 
   return (
@@ -109,17 +118,20 @@ export default function FlsBookingListPage() {
       </div>
 
       <FlsFilter
-        search={search}       onSearchChange={v => { setSearch(v); resetPage(); }}
-        unitNo={unitNo}       onUnitNoChange={v => { setUnitNo(v); resetPage(); }}
-        flsAgent={flsAgent}   onFlsAgentChange={v => { setFlsAgent(v); resetPage(); }}
-        mgrAgent={mgrAgent}   onMgrAgentChange={v => { setMgrAgent(v); resetPage(); }}
-        avpAgent={avpAgent}   onAvpAgentChange={v => { setAvpAgent(v); resetPage(); }}
+        search={search} onSearchChange={v => { setSearch(v); resetPage(); }}
+        unitNo={unitNo} onUnitNoChange={v => { setUnitNo(v); resetPage(); }}
+        flsAgent={flsAgent} onFlsAgentChange={v => { setFlsAgent(v); resetPage(); }}
+        mgrAgent={mgrAgent} onMgrAgentChange={v => { setMgrAgent(v); resetPage(); }}
+        avpAgent={avpAgent} onAvpAgentChange={v => { setAvpAgent(v); resetPage(); }}
         customerName={customerName} onCustomerNameChange={v => { setCustomerName(v); resetPage(); }}
-        dateFrom={dateFrom}   onDateFromChange={v => { setDateFrom(v); resetPage(); }}
-        dateTo={dateTo}       onDateToChange={v => { setDateTo(v); resetPage(); }}
+        dateFrom={dateFrom} onDateFromChange={v => { setDateFrom(v); resetPage(); }}
+        dateTo={dateTo} onDateToChange={v => { setDateTo(v); resetPage(); }}
         onExport={handleExport} exporting={exporting}
         onAddNew={() => router.push('/fls-booking-portal/booking/add')}
         theme="blue"
+        extraFilters={extraFilters}
+        onExtraFiltersChange={f => { setExtraFilters(f); resetPage(); }}
+        advStorageKey="fls_booking_adv"
       />
 
       <FlsTable

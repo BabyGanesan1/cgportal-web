@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, User, ChevronLeft, ChevronRight, Search, X, RefreshCw, Filter } from 'lucide-react';
+import { ArrowLeft, Clock, User, ChevronLeft, ChevronRight, Search, X, RefreshCw, Filter, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import FlsLayout from './FlsLayout';
 import api from '../../../lib/api';
@@ -30,9 +30,9 @@ interface FlsLog {
 function ModuleBadge({ module: mod }: { module: string | null }) {
   if (!mod) return null;
   const map: Record<string, string> = {
-    BOOKING:  'bg-indigo-100 text-indigo-700 border border-indigo-200',
+    BOOKING: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
     CHECKING: 'bg-amber-100 text-amber-700 border border-amber-200',
-    SOURCE:   'bg-cyan-100 text-cyan-700 border border-cyan-200',
+    SOURCE: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
   };
   return <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${map[mod] || 'bg-gray-100 text-gray-600'}`}>{mod}</span>;
 }
@@ -137,25 +137,44 @@ export default function FlsLogsPage({ type, id }: Props) {
   const router = useRouter();
   const label = TYPE_LABEL[type];
 
-  const [logs, setLogs]             = useState<FlsLog[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [page, setPage]             = useState(1);
-  const [total, setTotal]           = useState(0);
+  // Checking verify status summary (fetched from booking record)
+  const [verifyStatus, setVerifyStatus] = useState<{ status: string | null; remarks: string | null } | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(true);
+
+  const [logs, setLogs] = useState<FlsLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [filters, setFilters]       = useState({ ...EMPTY_FILTERS });
-  const [pending, setPending]       = useState({ ...EMPTY_FILTERS });
+  const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
+  const [pending, setPending] = useState({ ...EMPTY_FILTERS });
+
+  // Fetch the booking record once to get checking_verify_status and remarks
+  useEffect(() => {
+    setVerifyLoading(true);
+    api.get(`/fls-booking/${id}`)
+      .then(res => {
+        const d = res.data?.data || res.data;
+        setVerifyStatus({
+          status: d?.checking_verify_status ?? null,
+          remarks: d?.remarks ?? null,
+        });
+      })
+      .catch(() => setVerifyStatus(null))
+      .finally(() => setVerifyLoading(false));
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     const qp: Record<string, any> = { page, limit: PAGE_SIZE };
-    if (filters.search)     qp.search     = filters.search;
+    if (filters.search) qp.search = filters.search;
     if (filters.field_name) qp.field_name = filters.field_name;
-    if (filters.user_name)  qp.user_name  = filters.user_name;
-    if (filters.module)     qp.module     = filters.module;
-    if (filters.action)     qp.action     = filters.action;
-    if (filters.date_from)  qp.date_from  = filters.date_from;
-    if (filters.date_to)    qp.date_to    = filters.date_to;
+    if (filters.user_name) qp.user_name = filters.user_name;
+    if (filters.module) qp.module = filters.module;
+    if (filters.action) qp.action = filters.action;
+    if (filters.date_from) qp.date_from = filters.date_from;
+    if (filters.date_to) qp.date_to = filters.date_to;
 
     api.get(`/fls-booking/${id}/logs`, { params: qp })
       .then(res => {
@@ -199,6 +218,54 @@ export default function FlsLogsPage({ type, id }: Props) {
         </div>
         <Clock className="w-6 h-6 text-slate-400" />
       </div>
+
+      {/* Checking Verify Status Panel */}
+      {!verifyLoading && verifyStatus && (() => {
+        const st = (verifyStatus.status || '').toLowerCase();
+        const isVerified = st === 'verified';
+        const isHold = st === 'hold';
+        const isCancel = st === 'canceled' || st === 'cancelled' || st === 'cancel';
+        const isNone = !st;
+
+        const cfg = isVerified
+          ? { bg: 'bg-emerald-50 border-emerald-200', icon: ShieldCheck, iconCls: 'text-emerald-600', label: 'Verified', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+          : isHold
+            ? { bg: 'bg-amber-50 border-amber-200', icon: ShieldAlert, iconCls: 'text-amber-500', label: 'Hold', badge: 'bg-amber-100 text-amber-700 border-amber-200' }
+            : isCancel
+              ? { bg: 'bg-red-50 border-red-200', icon: ShieldX, iconCls: 'text-red-500', label: verifyStatus.status, badge: 'bg-red-100 text-red-700 border-red-200' }
+              : { bg: 'bg-slate-50 border-slate-200', icon: ShieldCheck, iconCls: 'text-slate-400', label: 'Yet to Verify', badge: 'bg-slate-100 text-slate-500 border-slate-200' };
+
+        const Icon = cfg.icon;
+        return (
+          <div className={`border rounded-xl shadow-sm p-4 mb-4 flex items-start gap-4 ${cfg.bg}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isVerified ? 'bg-emerald-100' : isHold ? 'bg-amber-100' : isCancel ? 'bg-red-100' : 'bg-slate-100'}`}>
+              <Icon className={`w-5 h-5 ${cfg.iconCls}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-slate-800">Checking Verify Status</span>
+                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize ${cfg.badge}`}>
+                  {cfg.label || 'Yet to Verify'}
+                </span>
+              </div>
+              {(isHold || isCancel) && verifyStatus.remarks && (
+                <div className="mt-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Remarks</span>
+                  <p className={`mt-0.5 text-sm rounded-lg px-3 py-2 border ${isHold ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-red-50 border-red-100 text-red-800'}`}>
+                    {verifyStatus.remarks}
+                  </p>
+                </div>
+              )}
+              {isVerified && (
+                <p className="text-xs text-emerald-600 mt-1">This booking has been verified. No remarks required.</p>
+              )}
+              {isNone && (
+                <p className="text-xs text-slate-400 mt-1">Verification has not been completed yet.</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filter panel */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 mb-5">

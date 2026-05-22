@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ChevronDown, X, Download, Plus, Filter, RefreshCw } from 'lucide-react';
+import { Search, ChevronDown, X, Download, Plus, Filter, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import AdvancedFilterDrawer from './AdvancedFilterDrawer';
 import api from '../../../lib/api';
 import DarkDatePicker from './DarkDatePicker';
 import { useFlsTheme } from './FlsThemeContext';
@@ -148,6 +149,10 @@ interface Props {
   onExport: () => void; exporting?: boolean;
   onAddNew?: () => void;
   theme?: 'blue' | 'green' | 'purple';
+  // Advanced filter drawer
+  extraFilters?: Record<string, string>;
+  onExtraFiltersChange?: (f: Record<string, string>) => void;
+  advStorageKey?: string;
 }
 
 export default function FlsFilter({
@@ -161,8 +166,12 @@ export default function FlsFilter({
   dateTo, onDateToChange,
   onExport, exporting = false,
   onAddNew,
+  extraFilters = {},
+  onExtraFiltersChange = () => { },
+  advStorageKey = 'fls_adv_drawer',
 }: Props) {
   const { isDark } = useFlsTheme();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [datePreset, setDatePreset] = useState('all');
   const [dateOpen, setDateOpen] = useState(false);
   const dateRef = useRef<HTMLDivElement>(null);
@@ -315,6 +324,23 @@ export default function FlsFilter({
 
         {/* Right: Apply + Export + Add New */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Advanced Filter button */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className={`relative flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors shadow-sm
+              ${Object.keys(extraFilters).length > 0
+                ? (isDark ? 'bg-brand-900 border-brand-600 text-brand-200' : 'bg-brand-50 border-brand-400 text-brand-700')
+                : (isDark ? 'bg-white/5 border-brand-700 text-brand-300 hover:bg-white/10' : 'bg-white border-brand-200 text-brand-700 hover:bg-brand-50')}`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Advanced</span>
+            {Object.keys(extraFilters).length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {Object.keys(extraFilters).length > 9 ? '9+' : Object.keys(extraFilters).length}
+              </span>
+            )}
+          </button>
+
           <button onClick={handleApply}
             className="flex items-center gap-2 px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
             <Filter className="w-3.5 h-3.5" /> Apply
@@ -332,11 +358,20 @@ export default function FlsFilter({
           {onAddNew && (
             <button onClick={onAddNew}
               className="flex items-center gap-2 bg-brand-800 hover:bg-brand-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Add New
+              <Plus className="w-3.5 h-3.5" /> Add Booking
             </button>
           )}
         </div>
       </div>
+
+      {/* Advanced Filter Drawer */}
+      <AdvancedFilterDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onApply={onExtraFiltersChange}
+        activeFilters={extraFilters}
+        storageKey={advStorageKey}
+      />
     </div>
   );
 }
