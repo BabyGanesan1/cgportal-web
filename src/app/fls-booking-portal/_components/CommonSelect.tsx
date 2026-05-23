@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Select, { StylesConfig } from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { useFlsTheme } from './FlsThemeContext';
 
 interface Option {
@@ -20,6 +21,9 @@ interface Props {
     isDark?: boolean;
     hasError?: boolean;
     className?: string;
+    isCreatable?: boolean;
+    isDynamicSearch?: boolean;
+    onInputChange?: (val: string) => void;
 }
 
 const customSelectStyles = (
@@ -162,9 +166,67 @@ export default function CommonSelect({
     isDark: isDarkProp,
     hasError = false,
     className = '',
+    isCreatable = false,
+    isDynamicSearch = false,
+    onInputChange,
 }: Props) {
     const { isDark: isDarkCtx } = useFlsTheme();
     const isDark = isDarkProp !== undefined ? isDarkProp : isDarkCtx;
+
+    const [inputValue, setInputValue] = useState('');
+
+    // If dynamic search is active, do not show options when the input is empty
+    const activeOptions = isDynamicSearch && !inputValue.trim() ? [] : options;
+
+    const selectProps = {
+        options: activeOptions,
+        value: options.find((o) => o.value === value) || (value ? { label: value, value } : null),
+        onChange: (selected: any) => {
+            onChange(selected?.value || '');
+            // Clear input after selection so the field shows the selected label cleanly
+            setInputValue('');
+        },
+        placeholder,
+        isDisabled: disabled,
+        isSearchable: true,
+        menuPortalTarget: typeof document !== 'undefined' ? document.body : undefined,
+        classNamePrefix: "react-select",
+        styles: customSelectStyles(disabled, isDark, hasError),
+        theme: (theme: any) => ({
+            ...theme,
+            borderRadius: 12,
+            colors: {
+                ...theme.colors,
+                primary: isDark ? '#1e3a55' : '#cbd5e1',
+                primary25: isDark ? '#162d46' : '#f1f5f9',
+                primary50: isDark ? '#162d46' : '#f1f5f9',
+                primary75: isDark ? '#162d46' : '#f1f5f9',
+            },
+        }),
+        inputValue,
+        onInputChange: (val: string, { action }: any) => {
+            // Allow input-change freely; also allow clearing when a value is picked
+            if (action === 'input-change' || action === 'set-value') {
+                setInputValue(val);
+                if (action === 'input-change' && onInputChange) {
+                    onInputChange(val);
+                }
+            }
+        },
+        // Do NOT clear inputValue on menu close — doing so kills the "Create" click
+        // because the menu closes before onChange fires, wiping the typed value.
+        noOptionsMessage: () => {
+            if (isDynamicSearch) {
+                // Return null so CreatableSelect shows its built-in "Create ..." option
+                // and plain Select just shows an empty menu (no "No options" noise)
+                return null;
+            }
+            return 'No options found';
+        },
+        // Only suppress the menu when nothing has been typed yet (dynamic search fields)
+        // Use undefined (not false) once typing starts so CreatableSelect can render
+        menuIsOpen: (isDynamicSearch && !inputValue.trim()) ? false : undefined,
+    };
 
     return (
         <div className={className}>
@@ -177,29 +239,11 @@ export default function CommonSelect({
                 </label>
             )}
 
-            <Select
-                options={options}
-                value={options.find((o) => o.value === value) || null}
-                onChange={(selected) => onChange(selected?.value || '')}
-                placeholder={placeholder}
-                isDisabled={disabled}
-                isSearchable
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
-                classNamePrefix="react-select"
-                styles={customSelectStyles(disabled, isDark, hasError)}
-                theme={(theme) => ({
-                    ...theme,
-                    borderRadius: 12,
-                    colors: {
-                        ...theme.colors,
-                        // override react-select's internal primary color so it doesn't bleed into focus rings
-                        primary: isDark ? '#1e3a55' : '#cbd5e1',
-                        primary25: isDark ? '#162d46' : '#f1f5f9',
-                        primary50: isDark ? '#162d46' : '#f1f5f9',
-                        primary75: isDark ? '#162d46' : '#f1f5f9',
-                    },
-                })}
-            />
+            {isCreatable ? (
+                <CreatableSelect {...selectProps} />
+            ) : (
+                <Select {...selectProps} />
+            )}
         </div>
     );
 }

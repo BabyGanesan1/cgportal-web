@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Eye, Download, FileText, Upload, X } from 'lucide-react';
 import api from '../../../lib/api';
@@ -37,12 +37,22 @@ const HALF = 'col-span-1 md:col-span-2';
 
 const ALL_CHECKING_FIELDS = [
   'project', 'unit_no', 'name', 'fls_id', 'fls_name', 'login_counter_date',
-  'net_sales', 'gross_sales', 'msp', 'taken_price', 'discount',
-  'land_cost', 'construction_cost', 'msp_custom_amount',
+  'net_sales', 'gross_sales', 'msp', 'msp_amount', 'taken_price', 'discount',
+  'msp_land_cost', 'msp_construction_cost',
+  'taken_land_cost', 'taken_construction_cost',
+  'msp_apartment_cost', 'taken_apartment_cost',
+  'msp_custom_amount',
   'offer', 'offer_description',
   'source_taken_lead', 'pushed_date', 'source', 'sub_source', 'iden_date',
   'source_remarks', 'customer_type', 'source_customer_name',
-  'source_verify_status', 'lead_remarks',
+  // SF Lead 1
+  'sf_lead_id1', 'sf_lead1_clone', 'sf_lead_id1_owner', 'pushed_date_lead1', 'sf_lead1_walkin_date', 'walkin_project_lead1',
+  // SF Lead 2
+  'sf_lead2', 'sf_lead2_clone', 'sf_lead_id2_owner', 'pushed_date_lead2', 'sf_lead2_walkin_date', 'walkin_project_lead2',
+  // SF Lead 3
+  'sf_lead3', 'sf_lead3_clone', 'sf_lead_id3_owner', 'pushed_date_lead3', 'sf_lead3_walkin_date', 'walkin_project_lead3',
+  // Sell Do & Walk-in
+  'sell_do_lead1', 'sell_do_lead2', 'sell_do_lead3', 'walk_in_date',
   'upfront_details', 'checking_verify_status', 'remarks',
   'region', 'stock', 'pl_team', 'type', 'con', 'swap_from_unit_details',
   'booking_form_date', 'values_amount', 'rs_in_crs', 'booking_form_status', 'form_type',
@@ -83,7 +93,26 @@ const ACK_OPTIONS = [
   { value: 'signed', label: 'Signed' },
   { value: 'non-acknowledgement', label: 'Non-Acknowledgement' },
 ];
-
+const SOURCE_OPTIONS = [
+  { value: 'PRINT', label: 'PRINT' },
+  { value: 'ONLINE', label: 'ONLINE' },
+  { value: 'PROPERTY PORTAL', label: 'PROPERTY PORTAL' },
+  { value: 'INHOUSE CHANNEL PARTNER', label: 'INHOUSE CHANNEL PARTNER' },
+  { value: 'CHANNEL PARTNER', label: 'CHANNEL PARTNER' },
+  { value: 'OUTDOOR', label: 'OUTDOOR' },
+  { value: 'PLM', label: 'PLM' },
+  { value: 'REFERRAL', label: 'REFERRAL' },
+  { value: 'EMPLOYEE BOOKING', label: 'EMPLOYEE BOOKING' },
+  { value: 'TVC', label: 'TVC' },
+  { value: 'THEATRE', label: 'THEATRE' },
+  { value: 'BTL', label: 'BTL' },
+  { value: 'RADIO', label: 'RADIO' },
+  { value: 'OTHERS MEDIUMS', label: 'OTHERS MEDIUMS' },
+];
+const BOOKING_FORM_STATUS_OPTIONS = [
+  { value: 'N', label: 'N' },
+  { value: 'R', label: 'R' },
+];
 interface Props {
   initialValues?: any;
   onSubmit: (data: any) => Promise<void>;
@@ -95,10 +124,102 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
   const { isDark } = useFlsTheme();
   const cls = makeClasses(isDark);
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: initialValues || {} });
+  // const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: initialValues || {} });
+  const { register, handleSubmit, reset, watch, setValue } = useForm({
+    defaultValues: {
+      booking_form_status: 'N',
+      ...(initialValues || {}),
+    }
+  });
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; path: string; size: number }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Dropdown option state (dynamic search — options load on typing) ────────
+  const [projectOptions, setProjectOptions] = useState<{ value: string; label: string }[]>([]);
+  const [flsOptions, setFlsOptions] = useState<{ value: string; label: string; name: string }[]>([]);
+  const [mgrOptions, setMgrOptions] = useState<{ value: string; label: string; name: string }[]>([]);
+  const [avpOptions, setAvpOptions] = useState<{ value: string; label: string; name: string }[]>([]);
+
+  // Debounce timers for search
+  const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flsSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mgrSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const avpSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchProjects = useCallback((q: string) => {
+    if (!q.trim()) { setProjectOptions([]); return; }
+    if (projectSearchTimer.current) clearTimeout(projectSearchTimer.current);
+    projectSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-booking/filter-values?fields=project&q=${encodeURIComponent(q)}`).then(r => {
+        const vals: string[] = r.data?.data?.project || [];
+        setProjectOptions(vals.map(v => ({ value: v, label: v })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchFls = useCallback((q: string) => {
+    if (!q.trim()) { setFlsOptions([]); return; }
+    if (flsSearchTimer.current) clearTimeout(flsSearchTimer.current);
+    flsSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-masters/fls?q=${encodeURIComponent(q)}`).then(r => {
+        const rows = r.data?.data || [];
+        setFlsOptions(rows.map((x: any) => ({ value: x.fls_id, label: `${x.fls_id} — ${x.fls_name}`, name: x.fls_name })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchMgr = useCallback((q: string) => {
+    if (!q.trim()) { setMgrOptions([]); return; }
+    if (mgrSearchTimer.current) clearTimeout(mgrSearchTimer.current);
+    mgrSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-masters/mgr?q=${encodeURIComponent(q)}`).then(r => {
+        const rows = r.data?.data || [];
+        setMgrOptions(rows.map((x: any) => ({ value: x.mgr_id, label: `${x.mgr_id} — ${x.mgr_name}`, name: x.mgr_name })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchAvp = useCallback((q: string) => {
+    if (!q.trim()) { setAvpOptions([]); return; }
+    if (avpSearchTimer.current) clearTimeout(avpSearchTimer.current);
+    avpSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-masters/avp?q=${encodeURIComponent(q)}`).then(r => {
+        const rows = r.data?.data || [];
+        setAvpOptions(rows.map((x: any) => ({ value: x.avp_id, label: `${x.avp_id} — ${x.avp_name}`, name: x.avp_name })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  // ── Dynamic search for "by whom" fields ─────────────────────────────────
+  const [bfReceivedByOptions, setBfReceivedByOptions] = useState<{ value: string; label: string }[]>([]);
+  const [verifiedByOptions, setVerifiedByOptions] = useState<{ value: string; label: string }[]>([]);
+  const bfReceivedByTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const verifiedByTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchBfReceivedBy = useCallback((q: string) => {
+    if (!q.trim()) { setBfReceivedByOptions([]); return; }
+    if (bfReceivedByTimer.current) clearTimeout(bfReceivedByTimer.current);
+    bfReceivedByTimer.current = setTimeout(() => {
+      api.get(`/fls-booking/filter-values?fields=booking_form_received_by_whom&q=${encodeURIComponent(q)}`)
+        .then(r => {
+          const vals: string[] = r.data?.data?.booking_form_received_by_whom || [];
+          setBfReceivedByOptions(vals.map(v => ({ value: v, label: v })));
+        }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchVerifiedBy = useCallback((q: string) => {
+    if (!q.trim()) { setVerifiedByOptions([]); return; }
+    if (verifiedByTimer.current) clearTimeout(verifiedByTimer.current);
+    verifiedByTimer.current = setTimeout(() => {
+      api.get(`/fls-booking/filter-values?fields=verified_by_whom&q=${encodeURIComponent(q)}`)
+        .then(r => {
+          const vals: string[] = r.data?.data?.verified_by_whom || [];
+          setVerifiedByOptions(vals.map(v => ({ value: v, label: v })));
+        }).catch(() => { });
+    }, 300);
+  }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -122,13 +243,21 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
   const sourceVerifyStatus = watch('source_verify_status');
   const acknowledgement = watch('acknowledgement');
   const msp = watch('msp');
-  const takenPrice = watch('taken_price');
-  const landCost = watch('land_cost');
-  const constructionCost = watch('construction_cost');
-  const mspCustomAmount = watch('msp_custom_amount');
   const source = watch('source');
   const subSource = watch('sub_source');
   const canVerify = !!(source?.trim() && subSource?.trim());
+
+  // MSP amount fields (Villa)
+  const mspLandCost = watch('msp_land_cost');
+  const mspConstructionCost = watch('msp_construction_cost');
+  // Taken amount fields (Villa)
+  const takenLandCost = watch('taken_land_cost');
+  const takenConstructionCost = watch('taken_construction_cost');
+  // Apartment-only fields
+  const mspApartmentCost = watch('msp_apartment_cost');
+  const takenApartmentCost = watch('taken_apartment_cost');
+  // Others
+  const mspCustomAmount = watch('msp_custom_amount');
 
   useEffect(() => {
     if (initialValues) {
@@ -136,23 +265,51 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
       if (initialValues.attachments) {
         try { setAttachedFiles(JSON.parse(initialValues.attachments)); } catch { }
       }
-      if (initialValues.fls_id) lookupMasterName('fls', initialValues.fls_id, 'fls_name');
-      if (initialValues.mgr_id) lookupMasterName('mgr', initialValues.mgr_id, 'mgr_name');
-      if (initialValues.avp_id) lookupMasterName('avp', initialValues.avp_id, 'avp_name');
+      // Pre-populate dropdown option for the currently selected value so it shows correctly in edit mode
+      if (initialValues.project) {
+        setProjectOptions([{ value: initialValues.project, label: initialValues.project }]);
+      }
+      if (initialValues.fls_id) {
+        lookupMasterName('fls', initialValues.fls_id, 'fls_name');
+        setFlsOptions([{ value: initialValues.fls_id, label: `${initialValues.fls_id} — ${initialValues.fls_name || ''}`, name: initialValues.fls_name || '' }]);
+      }
+      if (initialValues.mgr_id) {
+        lookupMasterName('mgr', initialValues.mgr_id, 'mgr_name');
+        setMgrOptions([{ value: initialValues.mgr_id, label: `${initialValues.mgr_id} — ${initialValues.mgr_name || ''}`, name: initialValues.mgr_name || '' }]);
+      }
+      if (initialValues.avp_id) {
+        lookupMasterName('avp', initialValues.avp_id, 'avp_name');
+        setAvpOptions([{ value: initialValues.avp_id, label: `${initialValues.avp_id} — ${initialValues.avp_name || ''}`, name: initialValues.avp_name || '' }]);
+      }
+      if (initialValues.booking_form_received_by_whom) {
+        setBfReceivedByOptions([{ value: initialValues.booking_form_received_by_whom, label: initialValues.booking_form_received_by_whom }]);
+      }
+      if (initialValues.verified_by_whom) {
+        setVerifiedByOptions([{ value: initialValues.verified_by_whom, label: initialValues.verified_by_whom }]);
+      }
     }
   }, [initialValues]);
 
+  // Auto-calculate MSP amount, Taken amount, and Discount
   useEffect(() => {
     if (!msp) return;
-    const tp = parseFloat(takenPrice) || 0;
-    let mspValue = 0;
-    if (msp === 'villa') mspValue = (parseFloat(landCost) || 0) + (parseFloat(constructionCost) || 0);
-    if (msp === 'apartment') mspValue = parseFloat(constructionCost) || 0;
-    if (msp === 'others') mspValue = parseFloat(mspCustomAmount) || 0;
-    if (mspValue !== 0 || tp !== 0) {
-      setValue('discount', (mspValue - tp).toFixed(2), { shouldDirty: true });
+    let mspAmount = 0;
+    let takenAmount = 0;
+    if (msp === 'villa') {
+      mspAmount = (parseFloat(mspLandCost) || 0) + (parseFloat(mspConstructionCost) || 0);
+      takenAmount = (parseFloat(takenLandCost) || 0) + (parseFloat(takenConstructionCost) || 0);
+    } else if (msp === 'apartment') {
+      mspAmount = parseFloat(mspApartmentCost) || 0;
+      takenAmount = parseFloat(takenApartmentCost) || 0;
+    } else if (msp === 'others') {
+      mspAmount = parseFloat(mspCustomAmount) || 0;
     }
-  }, [msp, takenPrice, landCost, constructionCost, mspCustomAmount]);
+    setValue('msp_amount', mspAmount.toFixed(2), { shouldDirty: true });
+    setValue('taken_price', takenAmount.toFixed(2), { shouldDirty: true });
+    if (mspAmount !== 0 || takenAmount !== 0) {
+      setValue('discount', (mspAmount - takenAmount).toFixed(2), { shouldDirty: true });
+    }
+  }, [msp, mspLandCost, mspConstructionCost, takenLandCost, takenConstructionCost, mspApartmentCost, takenApartmentCost, mspCustomAmount]);
 
   const lookupMasterName = async (endpoint: string, id: string, nameField: string) => {
     if (!id?.trim()) { setValue(nameField, ''); return; }
@@ -166,6 +323,13 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
     if (!idValue?.trim() || !nameValue?.trim()) return;
     try {
       await api.post(`/fls-masters/${endpoint}/upsert`, { [idField]: idValue.trim(), [nameField]: nameValue.trim() });
+      if (endpoint === 'fls') {
+        setFlsOptions(prev => prev.map(o => o.value === idValue ? { ...o, label: `${idValue} — ${nameValue}`, name: nameValue } : o));
+      } else if (endpoint === 'mgr') {
+        setMgrOptions(prev => prev.map(o => o.value === idValue ? { ...o, label: `${idValue} — ${nameValue}`, name: nameValue } : o));
+      } else if (endpoint === 'avp') {
+        setAvpOptions(prev => prev.map(o => o.value === idValue ? { ...o, label: `${idValue} — ${nameValue}`, name: nameValue } : o));
+      }
     } catch { }
   };
 
@@ -216,28 +380,86 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
 
           {sec('Identification')}
-          {inp('project', 'Project')}
+          {/* Project — dynamic search dropdown */}
+          <div>
+            <label className={cls.LABEL}>Project</label>
+            <CommonSelect
+              options={projectOptions}
+              value={watch('project') || ''}
+              onChange={v => {
+                setValue('project', v, { shouldDirty: true });
+                if (v) {
+                  setProjectOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: v }];
+                    }
+                    return prev;
+                  });
+                }
+              }}
+              onInputChange={searchProjects}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search project..."
+            />
+          </div>
           {inp('unit_no', 'Unit No')}
           {inp('name', 'Customer Name')}
+          {/* FLS ID — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>FLS ID</label>
-            <input {...register('fls_id')} type="text" className={cls.INPUT} placeholder="FLS ID"
-              onBlur={e => lookupMasterName('fls', e.target.value, 'fls_name')} />
+            <CommonSelect
+              options={flsOptions}
+              value={watch('fls_id') || ''}
+              onChange={v => {
+                setValue('fls_id', v, { shouldDirty: true });
+                if (v) {
+                  const match = flsOptions.find(o => o.value === v);
+                  setValue('fls_name', match?.name || '', { shouldDirty: true });
+                  setFlsOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: `${v} — (New)`, name: '' }];
+                    }
+                    return prev;
+                  });
+                } else {
+                  setValue('fls_name', '', { shouldDirty: true });
+                }
+              }}
+              onInputChange={searchFls}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search FLS ID..."
+            />
           </div>
           <div>
             <label className={cls.LABEL}>FLS Name</label>
             <input {...register('fls_name')} type="text" className={cls.INPUT} placeholder="FLS Name"
               onBlur={e => upsertMaster('fls', 'fls_id', 'fls_name', watch('fls_id'), e.target.value)} />
           </div>
-          {dt('login_counter_date', 'Login Counter Date')}
+          {/* {dt('login_counter_date', 'Login Counter Date')} */}
 
-          {sec('Sales Figures')}
+          {sec('Dates & Values')}
+          {dt('booking_form_date', 'Booking Form Date')}
+          {dt('login_counter_date', 'Login Counter Date')}
+          {inp('values_amount', 'Values')}
+          {inp('rs_in_crs', 'Rs in Crs')}
           {inp('net_sales', 'Net Sales')}
           {inp('gross_sales', 'Gross Sales')}
+          <div>
+            <label className={cls.LABEL}>Booking Form Status</label>
+            <CommonSelect
+              options={BOOKING_FORM_STATUS_OPTIONS}
+              value={watch('booking_form_status') || 'N'}
+              onChange={v => setValue('booking_form_status', v, { shouldDirty: true })}
+              placeholder="Select Status"
+            />
+          </div>
+          {inp('form_type', 'Form Type')}
 
           {/* MSP — CommonSelect */}
           <div>
-            <label className={cls.LABEL}>MSP</label>
+            <label className={cls.LABEL}>Category</label>
             <CommonSelect
               options={MSP_OPTIONS}
               value={watch('msp') || ''}
@@ -246,17 +468,67 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
             />
           </div>
 
-          {inp('taken_price', 'Taken Price')}
-          {inp('discount', 'Discount')}
-
+          {/* Villa: MSP = Land Cost + Construction Cost, Taken = Land Cost + Construction Cost */}
           {msp === 'villa' && (
             <>
-              {inp('land_cost', 'Land Cost')}
-              {inp('construction_cost', 'Construction Cost')}
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${cls.SEC_TITLE}`}>MSP</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                  {inp('msp_land_cost', 'Land Cost')}
+                  {inp('msp_construction_cost', 'Construction Cost')}
+                  <div>
+                    <label className={cls.LABEL}>MSP Amount (auto)</label>
+                    <input {...register('msp_amount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${cls.SEC_TITLE}`}>Taken</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                  {inp('taken_land_cost', 'Land Cost')}
+                  {inp('taken_construction_cost', 'Construction Cost')}
+                  <div>
+                    <label className={cls.LABEL}>Taken Amount (auto)</label>
+                    <input {...register('taken_price')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                </div>
+              </div>
             </>
           )}
-          {msp === 'apartment' && inp('construction_cost', 'Construction Cost')}
+
+          {/* Apartment: MSP = Construction Cost, Taken = Construction Cost */}
+          {msp === 'apartment' && (
+            <>
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${cls.SEC_TITLE}`}>MSP</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                  {inp('msp_apartment_cost', 'Construction Cost')}
+                  <div>
+                    <label className={cls.LABEL}>MSP Amount (auto)</label>
+                    <input {...register('msp_amount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${cls.SEC_TITLE}`}>Taken</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                  {inp('taken_apartment_cost', 'Construction Cost')}
+                  <div>
+                    <label className={cls.LABEL}>Taken Amount (auto)</label>
+                    <input {...register('taken_price')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
           {msp === 'others' && inp('msp_custom_amount', 'MSP Custom Amount')}
+
+          {/* Discount — auto calculated */}
+          <div>
+            <label className={cls.LABEL}>Discount (auto)</label>
+            <input {...register('discount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+          </div>
 
           {inp('offer', 'Offer')}
           {area('offer_description', 'Offer Description', HALF)}
@@ -264,13 +536,21 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {sec('Source Details')}
           {inp('source_taken_lead', 'Source Taken Lead')}
           {dt('pushed_date', 'Pushed Date')}
-          {inp('source', 'Source')}
+          {/* {inp('source', 'Source')} */}
+          {/* Source — CommonSelect (theme-aware) */}
+          <CommonSelect
+            label="Source"
+            options={SOURCE_OPTIONS}
+            value={watch('source') || ''}
+            onChange={v => setValue('source', v, { shouldDirty: true })}
+            placeholder="Select Source"
+          />
           {inp('sub_source', 'Sub Source')}
           {dt('iden_date', 'Iden Date')}
           {area('source_remarks', 'Source Remarks')}
 
           {/* Customer Type — CommonSelect */}
-          <div>
+          {/* <div>
             <label className={cls.LABEL}>Customer Type</label>
             <CommonSelect
               options={CUSTOMER_TYPE_OPTIONS}
@@ -278,32 +558,38 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
               onChange={v => setValue('customer_type', v, { shouldDirty: true })}
               placeholder="Select Type"
             />
-          </div>
+          </div> */}
           {inp('source_customer_name', 'Customer Name (Source)', HALF)}
 
-          {/* Source Verify Status — CommonSelect */}
-          <div>
-            <label className={cls.LABEL}>Source Verify Status</label>
-            <CommonSelect
-              options={SOURCE_VERIFY_OPTIONS}
-              value={watch('source_verify_status') || ''}
-              onChange={v => setValue('source_verify_status', v, { shouldDirty: true })}
-              placeholder="Select Status"
-            />
-          </div>
+          {sec('SF Lead 1')}
+          {inp('sf_lead_id1', 'SF Lead ID 1')}
+          {inp('sf_lead1_clone', 'SF Lead 1 Clone')}
+          {inp('sf_lead_id1_owner', 'SF Lead ID 1 Owner')}
+          {dt('pushed_date_lead1', 'Pushed Date (Lead 1)')}
+          {dt('sf_lead1_walkin_date', 'SF Lead 1 Walk-in Date')}
+          {inp('walkin_project_lead1', 'Walk-in Project (Lead 1)')}
 
-          {sourceVerifyStatus === 'hold' && (
-            <div className={FULL}>
-              <label className={cls.LABEL}>Lead Remarks <span className="text-red-400">*</span></label>
-              <textarea {...register('lead_remarks')} rows={2} className={cls.INPUT + ' resize-none'} placeholder="Lead Remarks (required for Hold)" />
-            </div>
-          )}
-          {sourceVerifyStatus !== 'hold' && (
-            <div className={HALF}>
-              <label className={cls.LABEL}>Lead Remarks</label>
-              <textarea {...register('lead_remarks')} rows={2} className={cls.INPUT + ' resize-none'} placeholder="Lead Remarks" />
-            </div>
-          )}
+          {sec('SF Lead 2')}
+          {inp('sf_lead2', 'SF Lead 2')}
+          {inp('sf_lead2_clone', 'SF Lead 2 Clone')}
+          {inp('sf_lead_id2_owner', 'SF Lead ID 2 Owner')}
+          {dt('pushed_date_lead2', 'Pushed Date (Lead 2)')}
+          {dt('sf_lead2_walkin_date', 'SF Lead 2 Walk-in Date')}
+          {inp('walkin_project_lead2', 'Walk-in Project (Lead 2)')}
+
+          {sec('SF Lead 3')}
+          {inp('sf_lead3', 'SF Lead 3')}
+          {inp('sf_lead3_clone', 'SF Lead 3 Clone')}
+          {inp('sf_lead_id3_owner', 'SF Lead ID 3 Owner')}
+          {dt('pushed_date_lead3', 'Pushed Date (Lead 3)')}
+          {dt('sf_lead3_walkin_date', 'SF Lead 3 Walk-in Date')}
+          {inp('walkin_project_lead3', 'Walk-in Project (Lead 3)')}
+
+          {sec('Sell Do Leads & Walk-in')}
+          {inp('sell_do_lead1', 'Sell Do Lead 1')}
+          {inp('sell_do_lead2', 'Sell Do Lead 2')}
+          {inp('sell_do_lead3', 'Sell Do Lead 3')}
+          {dt('walk_in_date', 'Walk In Date')}
 
           {sec('Upfront & Verification')}
           {area('upfront_details', 'Upfront Details')}
@@ -348,35 +634,99 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {area('swap_from_unit_details', 'Swap From Unit Details')}
 
           {sec('Booking Dates & Values')}
-          {dt('booking_form_date', 'Booking Form Date')}
-          {inp('values_amount', 'Values')}
-          {inp('rs_in_crs', 'Rs in Crs')}
-          {inp('booking_form_status', 'Booking Form Status')}
-          {inp('form_type', 'Form Type')}
+          {/* {dt('booking_form_date', 'Booking Form Date')} */}
+          {/* {inp('values_amount', 'Values')} */}
+          {/* {inp('rs_in_crs', 'Rs in Crs')} */}
+          {/* {inp('booking_form_status', 'Booking Form Status')} */}
+          {/* <div>
+            <label className={cls.LABEL}>Booking Form Status</label>
+            <CommonSelect
+              options={BOOKING_FORM_STATUS_OPTIONS}
+              value={watch('booking_form_status') || 'N'}
+              onChange={v => setValue('booking_form_status', v, { shouldDirty: true })}
+              placeholder="Select Status"
+            />
+          </div>
+          {inp('form_type', 'Form Type')} */}
 
-          {sec('Booking Form Details')}
+          {/* {sec('Booking Form Details')}
           {dt('bf_received_date', 'BF Received Date')}
-          {inp('booking_form_received_by_whom', 'BF Received By Whom')}
+          <div>
+            <label className={cls.LABEL}>BF Received By Whom</label>
+            <CommonSelect
+              options={bfReceivedByOptions}
+              value={watch('booking_form_received_by_whom') || ''}
+              onChange={v => setValue('booking_form_received_by_whom', v, { shouldDirty: true })}
+              onInputChange={searchBfReceivedBy}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search or enter name..."
+            />
+          </div>
           {dt('hold_date', 'Hold Date')}
           {dt('file_transfer_date', 'File Transfer Date')}
-          {area('file_transfer_details', 'File Transfer Details')}
-          {dt('lbc_date', 'LBC Date')}
+          {area('file_transfer_details', 'File Transfer Details')} */}
+          {/* {dt('lbc_date', 'LBC Date')} */}
 
           {sec('FLS & Manager Info')}
+          {/* Manager ID — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>Manager ID</label>
-            <input {...register('mgr_id')} type="text" className={cls.INPUT} placeholder="Manager ID"
-              onBlur={e => lookupMasterName('mgr', e.target.value, 'mgr_name')} />
+            <CommonSelect
+              options={mgrOptions}
+              value={watch('mgr_id') || ''}
+              onChange={v => {
+                setValue('mgr_id', v, { shouldDirty: true });
+                if (v) {
+                  const match = mgrOptions.find(o => o.value === v);
+                  setValue('mgr_name', match?.name || '', { shouldDirty: true });
+                  setMgrOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: `${v} — (New)`, name: '' }];
+                    }
+                    return prev;
+                  });
+                } else {
+                  setValue('mgr_name', '', { shouldDirty: true });
+                }
+              }}
+              onInputChange={searchMgr}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search Manager ID..."
+            />
           </div>
           <div>
             <label className={cls.LABEL}>Manager Name</label>
             <input {...register('mgr_name')} type="text" className={cls.INPUT} placeholder="Manager Name"
               onBlur={e => upsertMaster('mgr', 'mgr_id', 'mgr_name', watch('mgr_id'), e.target.value)} />
           </div>
+          {/* AVP ID — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>AVP ID</label>
-            <input {...register('avp_id')} type="text" className={cls.INPUT} placeholder="AVP ID"
-              onBlur={e => lookupMasterName('avp', e.target.value, 'avp_name')} />
+            <CommonSelect
+              options={avpOptions}
+              value={watch('avp_id') || ''}
+              onChange={v => {
+                setValue('avp_id', v, { shouldDirty: true });
+                if (v) {
+                  const match = avpOptions.find(o => o.value === v);
+                  setValue('avp_name', match?.name || '', { shouldDirty: true });
+                  setAvpOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: `${v} — (New)`, name: '' }];
+                    }
+                    return prev;
+                  });
+                } else {
+                  setValue('avp_name', '', { shouldDirty: true });
+                }
+              }}
+              onInputChange={searchAvp}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search AVP ID..."
+            />
           </div>
           <div>
             <label className={cls.LABEL}>AVP Name</label>
@@ -402,13 +752,13 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
             </div>
           )}
 
-          {sec('PDC Details')}
+          {/* {sec('PDC Details')}
           {inp('pdc_status', 'PDC Status')}
           {inp('pdc_cheque_received', 'PDC Cheque Received')}
           {inp('pdc_amount', 'PDC Amount')}
           {dt('pdc_date', 'PDC Date')}
           {inp('pdc_cheque_no', 'PDC Cheque No')}
-          {inp('bank_name_pdc', 'Bank Name (PDC)')}
+          {inp('bank_name_pdc', 'Bank Name (PDC)')} */}
 
           {sec('Payment Details')}
           {inp('payment_mode', 'Payment Mode')}
@@ -418,14 +768,25 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {inp('bank_name', 'Bank Name')}
           {area('payment_confirmation_with_confirmed_date', 'Payment Confirmation with Date', HALF)}
 
-          {sec('CIT Verification')}
+          {/* {sec('CIT Verification')}
           {dt('sent_for_cit_verification_date', 'Sent for CIT Verification Date')}
           {inp('sf_record_id', 'SF Record ID')}
           {inp('status_of_cit_verification', 'Status of CIT Verification')}
-          {inp('verified_by_whom', 'Verified By Whom')}
-          {dt('verified_date', 'Verified Date')}
+          <div>
+            <label className={cls.LABEL}>Verified By Whom</label>
+            <CommonSelect
+              options={verifiedByOptions}
+              value={watch('verified_by_whom') || ''}
+              onChange={v => setValue('verified_by_whom', v, { shouldDirty: true })}
+              onInputChange={searchVerifiedBy}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search or enter name..."
+            />
+          </div>
+          {dt('verified_date', 'Verified Date')} */}
 
-          {sec('Contact Info')}
+          {/* {sec('Contact Info')}
           {inp('phone_number_1', 'Phone Number 1')}
           {inp('phone_number_2', 'Phone Number 2')}
           {inp('phone_number_3', 'Phone Number 3')}
@@ -433,7 +794,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {inp('mail_id_1', 'Mail ID 1')}
           {inp('mail_id_2', 'Mail ID 2')}
           {inp('mail_id_3', 'Mail ID 3')}
-          {inp('mail_id_4', 'Mail ID 4')}
+          {inp('mail_id_4', 'Mail ID 4')} */}
 
           {sec('Booking Remarks')}
           {area('login_before_cancel_remarks', 'Login Before Cancel / Relogin Remarks')}

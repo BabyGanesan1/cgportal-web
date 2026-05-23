@@ -57,8 +57,8 @@ export default function FlsBookingListPage() {
       // Count statuses from full response summary if available, else compute from current page
       const allData: any[] = res.data.data || [];
       setTotalVerified(res.data.summary?.totalVerified ?? allData.filter((r: any) => r.checking_verify_status === 'verified').length);
-      setTotalHold(res.data.summary?.totalHold ?? allData.filter((r: any) => r.booking_form_status?.toLowerCase() === 'hold').length);
-      setTotalCancel(res.data.summary?.totalCancel ?? allData.filter((r: any) => r.booking_form_status?.toLowerCase() === 'cancel' || r.booking_form_status?.toLowerCase() === 'cancelled').length);
+      setTotalHold(res.data.summary?.totalHold ?? allData.filter((r: any) => r.checking_verify_status?.toLowerCase() === 'hold').length);
+      setTotalCancel(res.data.summary?.totalCancel ?? allData.filter((r: any) => r.checking_verify_status?.toLowerCase() === 'cancel' || r.booking_form_status?.toLowerCase() === 'cancelled').length);
     } catch { toast.error('Failed to load booking data'); }
     finally { setLoading(false); }
   }, [buildParams]);
@@ -80,7 +80,7 @@ export default function FlsBookingListPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { ...buildParams(1), limit: 10000, type: 'booking' };
+      const params = { ...buildParams(1), limit: 10000, export_type: 'booking' };
       const res = await api.get('/fls-booking/export', { params, responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a'); a.href = url;
@@ -92,10 +92,10 @@ export default function FlsBookingListPage() {
   };
 
   const stats = [
-    { label: 'Total Booking', value: total, icon: BarChart2, color: 'text-blue-400', bg: 'bg-blue-500/10', bar: 'bg-blue-500' },
-    { label: 'Total Booking Verified', value: totalVerified, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500' },
-    { label: 'Total Booking Hold', value: totalHold, icon: Layers, color: 'text-yellow-600', bg: 'bg-yellow-50', bar: 'bg-yellow-500' },
-    { label: 'Total Booking Canceled', value: totalCancel, icon: FileText, color: 'text-red-500', bg: 'bg-red-50', bar: 'bg-red-500' },
+    { label: 'Total Bookings', value: total, icon: BarChart2, color: 'text-blue-400', bg: 'bg-blue-500/10', bar: 'bg-blue-500' },
+    { label: 'Verified Booking ', value: totalVerified, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500' },
+    { label: 'Hold Booking ', value: totalHold, icon: Layers, color: 'text-yellow-600', bg: 'bg-yellow-50', bar: 'bg-yellow-500' },
+    { label: 'Canceled Booking ', value: totalCancel, icon: FileText, color: 'text-red-500', bg: 'bg-red-50', bar: 'bg-red-500' },
   ];
 
   return (

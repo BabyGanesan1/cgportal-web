@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   X, SlidersHorizontal, Plus, Trash2, Search,
-  ChevronDown, ChevronUp, Filter, RefreshCw,
+  ChevronDown, Filter, RefreshCw, ChevronUp,
 } from 'lucide-react';
 import api from '../../../lib/api';
 import DarkDatePicker from './DarkDatePicker';
@@ -10,119 +10,118 @@ import { useFlsTheme } from './FlsThemeContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type FieldType = 'text' | 'dropdown' | 'date' | 'status' | 'boolean' | 'number';
+type FieldType = 'multiselect' | 'text' | 'date';
 
 interface FieldDef {
   key: string;
   label: string;
   type: FieldType;
   section: string;
-  optionsKey?: string;
-  staticOptions?: { label: string; value: string }[];
+  /** DB column key to fetch unique values from backend */
+  valuesKey?: string;
+  /** For subsource: key of the field it depends on */
+  dependsOn?: string;
 }
 
-interface DynamicFilter {
+interface FilterRow {
   id: string;
   field: FieldDef;
+  /** multiselect → comma-joined; text → plain string; date → from-date */
   value: string;
+  /** date range: to-date */
   valueTo?: string;
 }
 
 interface Opt { label: string; value: string }
 
 // ─── All available filter fields ─────────────────────────────────────────────
+// EXCLUDED (not shown): values_amount, booking_amount, file_transfer_details,
+//   source_verify_status, net_sales, gross_sales, pdc_amount,
+//   payment_confirmation_with_confirmed_date (bank details raw text),
+//   taken_price, discount, land_cost, construction_cost, msp_custom_amount,
+//   offer, offer_description, upfront_details, rs_in_crs
 
-const ALL_FIELDS: FieldDef[] = [
-  // Booking Details
-  { key: 'project', label: 'Project', type: 'text', section: 'Booking Details' },
-  { key: 'region', label: 'Region', type: 'text', section: 'Booking Details' },
-  { key: 'stock', label: 'Stock', type: 'text', section: 'Booking Details' },
-  { key: 'pl_team', label: 'P & L Team', type: 'text', section: 'Booking Details' },
-  { key: 'type', label: 'Type', type: 'text', section: 'Booking Details' },
-  { key: 'con', label: 'CON', type: 'text', section: 'Booking Details' },
+const FILTER_FIELDS: FieldDef[] = [
+
+  // ── Booking Details ──────────────────────────────────────────────────────
+  { key: 'booking_form_status', label: 'Booking Status', type: 'multiselect', section: 'Booking Details', valuesKey: 'booking_form_status' },
+  { key: 'payment_mode', label: 'Payment Status', type: 'multiselect', section: 'Booking Details', valuesKey: 'payment_mode' },
+  { key: 'project', label: 'Project', type: 'multiselect', section: 'Booking Details', valuesKey: 'project' },
+  { key: 'region', label: 'Region', type: 'multiselect', section: 'Booking Details', valuesKey: 'region' },
+  { key: 'stock', label: 'Stock', type: 'multiselect', section: 'Booking Details', valuesKey: 'stock' },
+  { key: 'pl_team', label: 'PL Team', type: 'multiselect', section: 'Booking Details', valuesKey: 'pl_team' },
+  { key: 'type', label: 'Type', type: 'multiselect', section: 'Booking Details', valuesKey: 'type' },
+  { key: 'con', label: 'CON', type: 'multiselect', section: 'Booking Details', valuesKey: 'con' },
+  { key: 'form_type', label: 'Form Type', type: 'multiselect', section: 'Booking Details', valuesKey: 'form_type' },
+  { key: 'scheme', label: 'Scheme', type: 'multiselect', section: 'Booking Details', valuesKey: 'scheme' },
+  { key: 'acknowledgement', label: 'Acknowledge', type: 'multiselect', section: 'Booking Details', valuesKey: 'acknowledgement' },
+  { key: 'booking_form_received_by_whom', label: 'BF Received By Whom', type: 'multiselect', section: 'Booking Details', valuesKey: 'booking_form_received_by_whom' },
   { key: 'booking_form_date', label: 'Booking Form Date', type: 'date', section: 'Booking Details' },
   { key: 'login_counter_date', label: 'Login Counter Date', type: 'date', section: 'Booking Details' },
-  { key: 'booking_form_status', label: 'Booking Form Status', type: 'text', section: 'Booking Details' },
-  { key: 'form_type', label: 'Form Type', type: 'text', section: 'Booking Details' },
   { key: 'bf_received_date', label: 'BF Received Date', type: 'date', section: 'Booking Details' },
   { key: 'hold_date', label: 'Hold Date', type: 'date', section: 'Booking Details' },
   { key: 'file_transfer_date', label: 'File Transfer Date', type: 'date', section: 'Booking Details' },
   { key: 'lbc_date', label: 'LBC Date', type: 'date', section: 'Booking Details' },
-  { key: 'scheme', label: 'Scheme', type: 'text', section: 'Booking Details' },
-  { key: 'values_amount', label: 'Values / Amount', type: 'text', section: 'Booking Details' },
-  { key: 'payment_mode', label: 'Payment Mode', type: 'text', section: 'Booking Details' },
-  { key: 'booking_amount', label: 'Booking Amount', type: 'text', section: 'Booking Details' },
-  { key: 'acknowledgement', label: 'Acknowledgement', type: 'text', section: 'Booking Details' },
+  { key: 'remarks', label: 'Remarks', type: 'text', section: 'Booking Details' },
+  { key: 'login_before_cancel_remarks', label: 'Login Before Cancel Remarks', type: 'text', section: 'Booking Details' },
+  { key: 'acknowledgement_remarks', label: 'Acknowledgement Remarks', type: 'text', section: 'Booking Details' },
 
-  // Customer Details
-  { key: 'phone_number_1', label: 'Mobile Number', type: 'text', section: 'Customer Details' },
-  { key: 'mail_id_1', label: 'Email ID', type: 'text', section: 'Customer Details' },
-  { key: 'customer_type', label: 'Customer Type', type: 'text', section: 'Customer Details' },
+  // ── Unit Details ─────────────────────────────────────────────────────────
+  { key: 'unit_no', label: 'Unit No', type: 'multiselect', section: 'Unit Details', valuesKey: 'unit_no' },
+  { key: 'swap_from_unit_details', label: 'Swap From Unit Details', type: 'text', section: 'Unit Details' },
 
-  // Executive Details
-  { key: 'fls_agent', label: 'FLS ID - Name', type: 'dropdown', section: 'Executive Details', optionsKey: 'fls_agents' },
-  { key: 'mgr_agent', label: 'Manager ID - Name', type: 'dropdown', section: 'Executive Details', optionsKey: 'mgr_agents' },
-  { key: 'avp_agent', label: 'AVP ID - Name', type: 'dropdown', section: 'Executive Details', optionsKey: 'avp_agents' },
+  // ── Customer Details ─────────────────────────────────────────────────────
+  { key: 'name', label: 'Customer Name', type: 'multiselect', section: 'Customer Details', valuesKey: 'name' },
+  { key: 'customer_type', label: 'Customer Type', type: 'multiselect', section: 'Customer Details', valuesKey: 'customer_type' },
+  // Grouped: searches phone_number_1–4
+  { key: 'mobile_number', label: 'Mobile Number', type: 'text', section: 'Customer Details' },
+  // Grouped: searches mail_id_1–4
+  { key: 'email_filter', label: 'Email', type: 'text', section: 'Customer Details' },
 
-  // Source Details
-  { key: 'source', label: 'Source', type: 'text', section: 'Source Details' },
-  { key: 'sub_source', label: 'Sub Source', type: 'text', section: 'Source Details' },
+  // ── Executive Details ────────────────────────────────────────────────────
+  { key: 'fls_id', label: 'FLS ID', type: 'multiselect', section: 'Executive Details', valuesKey: 'fls_id' },
+  { key: 'fls_name', label: 'FLS Name', type: 'multiselect', section: 'Executive Details', valuesKey: 'fls_name' },
+  { key: 'mgr_id', label: 'Manager ID', type: 'multiselect', section: 'Executive Details', valuesKey: 'mgr_id' },
+  { key: 'mgr_name', label: 'Manager Name', type: 'multiselect', section: 'Executive Details', valuesKey: 'mgr_name' },
+  { key: 'avp_id', label: 'AVP ID', type: 'multiselect', section: 'Executive Details', valuesKey: 'avp_id' },
+  { key: 'avp_name', label: 'AVP', type: 'multiselect', section: 'Executive Details', valuesKey: 'avp_name' },
+
+  // ── Source Details ───────────────────────────────────────────────────────
+  { key: 'source', label: 'Source', type: 'multiselect', section: 'Source Details', valuesKey: 'source' },
+  { key: 'sub_source', label: 'Subsource', type: 'multiselect', section: 'Source Details', valuesKey: 'sub_source', dependsOn: 'source' },
   { key: 'source_customer_name', label: 'Source Customer Name', type: 'text', section: 'Source Details' },
+  { key: 'source_taken_lead', label: 'Source Taken Lead', type: 'text', section: 'Source Details' },
+  { key: 'source_remarks', label: 'Source Remarks', type: 'text', section: 'Source Details' },
   { key: 'pushed_date', label: 'Pushed Date', type: 'date', section: 'Source Details' },
   { key: 'iden_date', label: 'Iden Date', type: 'date', section: 'Source Details' },
   { key: 'walk_in_date', label: 'Walk In Date', type: 'date', section: 'Source Details' },
 
-  // Status Details
-  {
-    key: 'checking_verify_status', label: 'Checking Verify Status', type: 'status', section: 'Status Details',
-    staticOptions: [
-      { label: 'Verified', value: 'verified' },
-      { label: 'Hold', value: 'hold' },
-      { label: 'Canceled', value: 'canceled' },
-    ],
-  },
-  {
-    key: 'source_verify_status', label: 'Source Verify Status', type: 'status', section: 'Status Details',
-    staticOptions: [
-      { label: 'Verified', value: 'verified' },
-      { label: 'Hold', value: 'hold' },
-      { label: 'Canceled', value: 'canceled' },
-    ],
-  },
-  {
-    key: 'msp', label: 'MSP', type: 'status', section: 'Status Details',
-    staticOptions: [
-      { label: 'Villa', value: 'villa' },
-      { label: 'Apartment', value: 'apartment' },
-      { label: 'Others', value: 'others' },
-    ],
-  },
-  { key: 'pdc_status', label: 'PDC Status', type: 'text', section: 'Status Details' },
+  // ── Status Details ───────────────────────────────────────────────────────
+  { key: 'checking_verify_status', label: 'POC Status', type: 'multiselect', section: 'Status Details', valuesKey: 'checking_verify_status' },
+  { key: 'msp', label: 'MSP', type: 'multiselect', section: 'Status Details', valuesKey: 'msp' },
+  { key: 'pdc_status', label: 'PDC Status', type: 'multiselect', section: 'PDC Details', valuesKey: 'pdc_status' },
 
-  // Verification Details
+  // ── Verification Details ─────────────────────────────────────────────────
   { key: 'sf_record_id', label: 'SF Record ID', type: 'text', section: 'Verification Details' },
-  { key: 'status_of_cit_verification', label: 'CIT Verification Status', type: 'text', section: 'Verification Details' },
-  { key: 'verified_by_whom', label: 'Verified By Whom', type: 'text', section: 'Verification Details' },
+  { key: 'status_of_cit_verification', label: 'CIT Verification Status', type: 'multiselect', section: 'Verification Details', valuesKey: 'status_of_cit_verification' },
+  { key: 'verified_by_whom', label: 'Verified By Whom', type: 'multiselect', section: 'Verification Details', valuesKey: 'verified_by_whom' },
   { key: 'verified_date', label: 'Verified Date', type: 'date', section: 'Verification Details' },
   { key: 'sent_for_cit_verification_date', label: 'CIT Sent Date', type: 'date', section: 'Verification Details' },
 
-  // Date Filters
+  // ── Date Filters ─────────────────────────────────────────────────────────
   { key: 'createdAt', label: 'Created Date', type: 'date', section: 'Date Filters' },
 
-  // Lead Details
-  { key: 'sf_lead_id1', label: 'SF Lead ID 1', type: 'text', section: 'Lead Details' },
-  { key: 'sf_lead2', label: 'SF Lead ID 2', type: 'text', section: 'Lead Details' },
-  { key: 'sf_lead3', label: 'SF Lead ID 3', type: 'text', section: 'Lead Details' },
-  { key: 'sell_do_lead1', label: 'Sell Do Lead 1', type: 'text', section: 'Lead Details' },
-  { key: 'sell_do_lead2', label: 'Sell Do Lead 2', type: 'text', section: 'Lead Details' },
-  { key: 'sell_do_lead3', label: 'Sell Do Lead 3', type: 'text', section: 'Lead Details' },
-  { key: 'sf_lead1_clone', label: 'SF Lead 1 Clone', type: 'text', section: 'Lead Details' },
-  { key: 'sf_lead2_clone', label: 'SF Lead 2 Clone', type: 'text', section: 'Lead Details' },
-  { key: 'sf_lead3_clone', label: 'SF Lead 3 Clone', type: 'text', section: 'Lead Details' },
+  // ── Lead Details ─────────────────────────────────────────────────────────
+  // Grouped: searches sf_lead_id1, sf_lead2, sf_lead3
+  { key: 'lead_id_filter', label: 'Lead ID', type: 'text', section: 'Lead Details' },
+  // Grouped: searches sell_do_lead1, sell_do_lead2, sell_do_lead3
+  { key: 'sell_do_filter', label: 'Sell DO', type: 'text', section: 'Lead Details' },
+  // Grouped: searches sf_lead1_clone, sf_lead2_clone, sf_lead3_clone
+  { key: 'sell_clone_filter', label: 'Sell Clone', type: 'text', section: 'Lead Details' },
   { key: 'sf_lead_id1_owner', label: 'SF Lead ID 1 Owner', type: 'text', section: 'Lead Details' },
   { key: 'pushed_date_lead1', label: 'Pushed Date Lead 1', type: 'date', section: 'Lead Details' },
   { key: 'sf_lead1_walkin_date', label: 'SF Lead 1 Walkin Date', type: 'date', section: 'Lead Details' },
-  { key: 'walkin_project_lead1', label: 'Walkin Project Lead 1', type: 'text', section: 'Lead Details' },
+  { key: 'walkin_project_lead1', label: 'Walk Project ID', type: 'text', section: 'Lead Details' },
   { key: 'sf_lead_id2_owner', label: 'SF Lead ID 2 Owner', type: 'text', section: 'Lead Details' },
   { key: 'pushed_date_lead2', label: 'Pushed Date Lead 2', type: 'date', section: 'Lead Details' },
   { key: 'sf_lead2_walkin_date', label: 'SF Lead 2 Walkin Date', type: 'date', section: 'Lead Details' },
@@ -133,109 +132,33 @@ const ALL_FIELDS: FieldDef[] = [
   { key: 'walkin_project_lead3', label: 'Walkin Project Lead 3', type: 'text', section: 'Lead Details' },
   { key: 'lead_remarks', label: 'Lead Remarks', type: 'text', section: 'Lead Details' },
 
-  // Unit Details
-  { key: 'unit_no', label: 'Unit No', type: 'text', section: 'Unit Details' },
-  { key: 'swap_from_unit_details', label: 'Swap From Unit Details', type: 'text', section: 'Unit Details' },
-  { key: 'name', label: 'Name', type: 'text', section: 'Unit Details' },
-  { key: 'rs_in_crs', label: 'Rs in Crs', type: 'text', section: 'Unit Details' },
-  { key: 'net_sales', label: 'Net Sales', type: 'text', section: 'Unit Details' },
-  { key: 'gross_sales', label: 'Gross Sales', type: 'text', section: 'Unit Details' },
-
-  // Booking Extra Details
-  { key: 'booking_form_received_by_whom', label: 'BF Received By Whom', type: 'text', section: 'Booking Details' },
-  { key: 'file_transfer_details', label: 'File Transfer Details', type: 'text', section: 'Booking Details' },
-  { key: 'remarks', label: 'Remarks', type: 'text', section: 'Booking Details' },
-  { key: 'login_before_cancel_remarks', label: 'Login Before Cancel Remarks', type: 'text', section: 'Booking Details' },
-
-  // Executive ID Details
-  { key: 'fls_id', label: 'FLS ID', type: 'text', section: 'Executive Details' },
-  { key: 'fls_name', label: 'FLS Name', type: 'text', section: 'Executive Details' },
-  { key: 'mgr_id', label: 'Manager ID', type: 'text', section: 'Executive Details' },
-  { key: 'mgr_name', label: 'Manager Name', type: 'text', section: 'Executive Details' },
-  { key: 'avp_id', label: 'AVP ID', type: 'text', section: 'Executive Details' },
-  { key: 'avp_name', label: 'AVP Name', type: 'text', section: 'Executive Details' },
-
-  // Acknowledgement
-  { key: 'acknowledgement_remarks', label: 'Acknowledgement Remarks', type: 'text', section: 'Booking Details' },
-
-  // PDC Details
-  { key: 'pdc_cheque_received', label: 'PDC Cheque Received', type: 'text', section: 'PDC Details' },
-  { key: 'pdc_amount', label: 'PDC Amount', type: 'text', section: 'PDC Details' },
+  // ── PDC Details ──────────────────────────────────────────────────────────
+  { key: 'pdc_cheque_received', label: 'PDC Cheque Received', type: 'multiselect', section: 'PDC Details', valuesKey: 'pdc_cheque_received' },
+  { key: 'pdc_cheque_no', label: 'PDC Check Number', type: 'text', section: 'PDC Details' },
+  { key: 'bank_name_pdc', label: 'Bank Name (PDC)', type: 'multiselect', section: 'PDC Details', valuesKey: 'bank_name_pdc' },
   { key: 'pdc_date', label: 'PDC Date', type: 'date', section: 'PDC Details' },
-  { key: 'pdc_cheque_no', label: 'PDC Cheque No', type: 'text', section: 'PDC Details' },
-  { key: 'bank_name_pdc', label: 'Bank Name (PDC)', type: 'text', section: 'PDC Details' },
 
-  // Payment Details
-  { key: 'payment_confirmation_with_confirmed_date', label: 'Payment Confirmation Date', type: 'text', section: 'Payment Details' },
-  { key: 'cheque_date', label: 'Cheque Date', type: 'date', section: 'Payment Details' },
+  // ── Payment Details ──────────────────────────────────────────────────────
+  { key: 'bank_name', label: 'Bank Name', type: 'multiselect', section: 'Payment Details', valuesKey: 'bank_name' },
   { key: 'cheque_no', label: 'Cheque No', type: 'text', section: 'Payment Details' },
-  { key: 'bank_name', label: 'Bank Name', type: 'text', section: 'Payment Details' },
-
-  // Customer Extra
-  { key: 'phone_number_2', label: 'Phone Number 2', type: 'text', section: 'Customer Details' },
-  { key: 'phone_number_3', label: 'Phone Number 3', type: 'text', section: 'Customer Details' },
-  { key: 'phone_number_4', label: 'Phone Number 4', type: 'text', section: 'Customer Details' },
-  { key: 'mail_id_2', label: 'Email ID 2', type: 'text', section: 'Customer Details' },
-  { key: 'mail_id_3', label: 'Email ID 3', type: 'text', section: 'Customer Details' },
-  { key: 'mail_id_4', label: 'Email ID 4', type: 'text', section: 'Customer Details' },
-
-  // Source Extra
-  { key: 'source_taken_lead', label: 'Source Taken Lead', type: 'text', section: 'Source Details' },
-  { key: 'source_remarks', label: 'Source Remarks', type: 'text', section: 'Source Details' },
-
-  // MSP / Pricing Details
-  { key: 'taken_price', label: 'Taken Price', type: 'text', section: 'MSP / Pricing' },
-  { key: 'discount', label: 'Discount', type: 'text', section: 'MSP / Pricing' },
-  { key: 'land_cost', label: 'Land Cost', type: 'text', section: 'MSP / Pricing' },
-  { key: 'construction_cost', label: 'Construction Cost', type: 'text', section: 'MSP / Pricing' },
-  { key: 'msp_custom_amount', label: 'MSP Custom Amount', type: 'text', section: 'MSP / Pricing' },
-  { key: 'offer', label: 'Offer', type: 'text', section: 'MSP / Pricing' },
-  { key: 'offer_description', label: 'Offer Description', type: 'text', section: 'MSP / Pricing' },
-  { key: 'upfront_details', label: 'Upfront Details', type: 'text', section: 'MSP / Pricing' },
-  { key: 'description', label: 'Description', type: 'text', section: 'MSP / Pricing' },
+  { key: 'cheque_date', label: 'Cheque Date', type: 'date', section: 'Payment Details' },
 ];
 
-// ─── Default fields shown when drawer is opened for the first time ────────────
-// Priority: all date fields + all status/dropdown fields + key booking fields
-const DEFAULT_FILTER_KEYS: string[] = [
-  // Date Filters (section)
-  'createdAt',
-  // Booking Detail dates
-  'booking_form_date',
-  'login_counter_date',
-  'bf_received_date',
-  'hold_date',
-  'file_transfer_date',
-  'lbc_date',
-  // Verification dates
-  'verified_date',
-  'sent_for_cit_verification_date',
-  // Source dates
-  'pushed_date',
-  'iden_date',
-  'walk_in_date',
-  // Status dropdowns
-  'checking_verify_status',
-  'source_verify_status',
-  'msp',
-  'pdc_status',
-  // Executive dropdowns
-  'fls_agent',
-  'mgr_agent',
-  'avp_agent',
-  // Key booking text fields
-  'booking_form_status',
-  'payment_mode',
-];
+// ─── Multi-Select Searchable Dropdown ────────────────────────────────────────
 
-// ─── SearchableSelect ─────────────────────────────────────────────────────────
+interface MultiSelectProps {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: Opt[];
+  placeholder: string;
+  isDark: boolean;
+  disabled?: boolean;
+  loading?: boolean;
+}
 
-function SearchableSelect({
-  value, onChange, options, placeholder, isDark = false,
-}: {
-  value: string; onChange: (v: string) => void; options: Opt[];
-  placeholder: string; isDark?: boolean;
-}) {
+function MultiSelectDropdown({
+  value, onChange, options, placeholder, isDark, disabled = false, loading = false,
+}: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -248,65 +171,131 @@ function SearchableSelect({
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const filtered = query ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase())) : options;
-  const selectedLabel = options.find(o => o.value === value)?.label ?? '';
+  const filtered = query
+    ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  const toggle = (v: string) => {
+    if (value.includes(v)) onChange(value.filter(x => x !== v));
+    else onChange([...value, v]);
+  };
 
   const base = isDark
     ? 'bg-[#1e3350] border-[#2d4a68] text-[#e2e8f0]'
     : 'bg-white border-gray-200 text-gray-800';
+  const disabledCls = disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
+  const tagCls = isDark ? 'bg-[#2d4a68] text-[#94a3b8]' : 'bg-brand-100 text-brand-700';
 
   return (
-    <div ref={ref} className="relative w-full">
+    <div ref={ref} className={`relative w-full ${disabledCls}`}>
       <div
-        onClick={() => { setQuery(''); setOpen(true); }}
-        className={`flex items-center border rounded-lg cursor-pointer shadow-sm ${base} focus-within:ring-1 ${isDark ? 'focus-within:ring-[#3d6b9e] focus-within:border-[#3d6b9e]' : 'focus-within:ring-brand-500 focus-within:border-brand-500'}`}
+        onClick={() => { if (!disabled) { setQuery(''); setOpen(true); } }}
+        className={`flex flex-wrap items-center gap-1 border rounded-lg cursor-pointer shadow-sm min-h-[38px] px-2 py-1.5 ${base}
+          ${isDark ? 'focus-within:ring-[#3d6b9e] focus-within:border-[#3d6b9e]' : 'focus-within:ring-brand-500 focus-within:border-brand-500'}`}
       >
-        <Search className={`w-3.5 h-3.5 ml-2.5 shrink-0 ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`} />
+        {/* Selected tags */}
+        {value.map(v => (
+          <span key={v} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${tagCls}`}>
+            {v}
+            <button type="button" onClick={e => { e.stopPropagation(); toggle(v); }} className="hover:opacity-70">
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </span>
+        ))}
+        {/* Search input */}
         <input
-          className={`flex-1 px-2 py-2 bg-transparent text-sm focus:outline-none min-w-0 ${isDark ? 'text-[#e2e8f0] placeholder-[#4a6580]' : 'text-gray-800 placeholder-gray-400'}`}
-          placeholder={placeholder}
-          value={open ? query : selectedLabel}
+          className={`flex-1 min-w-[80px] bg-transparent text-sm focus:outline-none ${isDark ? 'text-[#e2e8f0] placeholder-[#4a6580]' : 'text-gray-800 placeholder-gray-400'}`}
+          placeholder={value.length === 0 ? (loading ? 'Loading...' : placeholder) : ''}
+          value={open ? query : ''}
           onFocus={() => { setQuery(''); setOpen(true); }}
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
         />
-        {value && !open && (
-          <button onClick={e => { e.stopPropagation(); onChange(''); setQuery(''); }} className={`pr-1.5 shrink-0 ${isDark ? 'text-[#4d6d8a] hover:text-[#94a3b8]' : 'text-gray-300 hover:text-gray-600'}`}>
+        {value.length > 0 && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onChange([]); }}
+            className={`shrink-0 ${isDark ? 'text-[#4d6d8a] hover:text-[#94a3b8]' : 'text-gray-300 hover:text-gray-600'}`}
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
-        <ChevronDown className={`w-3.5 h-3.5 mr-2 transition-transform shrink-0 ${open ? 'rotate-180' : ''} ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`} />
+        <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform shrink-0 ${open ? 'rotate-180' : ''} ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`} />
       </div>
+
       {open && (
-        <div className={`absolute top-full left-0 mt-1 z-[400] border rounded-xl shadow-lg max-h-52 overflow-y-auto min-w-full ${isDark ? 'bg-[#1e3350] border-[#2d4a68]' : 'bg-white border-gray-100'}`}>
-          {filtered.length === 0
-            ? <div className={`px-4 py-3 text-sm text-center ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>No matches</div>
-            : filtered.map(opt => (
-              <button key={opt.value} type="button"
-                onClick={() => { onChange(opt.value); setOpen(false); setQuery(''); }}
-                className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl
-                  ${value === opt.value
-                    ? (isDark ? 'text-[#e2e8f0] font-medium bg-[#243b53]' : 'text-brand-800 font-medium bg-brand-50')
-                    : (isDark ? 'text-[#94a3b8] hover:bg-[#243b53]' : 'text-gray-700 hover:bg-gray-50')}`}
+        <div className={`absolute top-full left-0 mt-1 z-[600] border rounded-xl shadow-xl max-h-56 overflow-y-auto w-full min-w-[220px] ${isDark ? 'bg-[#1e3350] border-[#2d4a68]' : 'bg-white border-gray-100'}`}>
+          {/* Select All / Clear All */}
+          {filtered.length > 0 && (
+            <div className={`px-3 py-1.5 border-b flex gap-2 sticky top-0 ${isDark ? 'border-[#2d4a68] bg-[#1e3350]' : 'border-gray-100 bg-white'}`}>
+              <button
+                type="button"
+                onClick={() => onChange(filtered.map(o => o.value))}
+                className={`text-xs px-2 py-1 rounded font-medium ${isDark ? 'text-[#60a5fa] hover:bg-[#243b53]' : 'text-brand-700 hover:bg-brand-50'}`}
               >
-                {opt.label}
+                Select All
               </button>
-            ))
-          }
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className={`text-xs px-2 py-1 rounded font-medium ${isDark ? 'text-red-400 hover:bg-red-900/20' : 'text-red-500 hover:bg-red-50'}`}
+              >
+                Clear
+              </button>
+              <span className={`ml-auto text-xs py-1 ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>
+                {value.length > 0 ? `${value.length} selected` : ''}
+              </span>
+            </div>
+          )}
+          {filtered.length === 0 ? (
+            <div className={`px-4 py-3 text-sm text-center ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>
+              {loading ? 'Loading...' : 'No matches'}
+            </div>
+          ) : filtered.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggle(opt.value)}
+              className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2.5 first:rounded-t-xl last:rounded-b-xl
+                ${value.includes(opt.value)
+                  ? (isDark ? 'text-[#e2e8f0] font-medium bg-[#243b53]' : 'text-brand-800 font-medium bg-brand-50')
+                  : (isDark ? 'text-[#94a3b8] hover:bg-[#243b53]' : 'text-gray-700 hover:bg-gray-50')}`}
+            >
+              {/* Checkbox */}
+              <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-[9px] font-bold
+                ${value.includes(opt.value)
+                  ? (isDark ? 'bg-[#60a5fa] border-[#60a5fa] text-white' : 'bg-brand-600 border-brand-600 text-white')
+                  : (isDark ? 'border-[#4d6d8a]' : 'border-gray-300')}`}
+              >
+                {value.includes(opt.value) && '✓'}
+              </span>
+              {opt.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ─── FilterInput ──────────────────────────────────────────────────────────────
+// ─── FilterRowInput ───────────────────────────────────────────────────────────
 
-function FilterInput({
-  field, value, valueTo, onChange, onChangeTo, isDark, allOptions,
-}: {
-  field: FieldDef; value: string; valueTo?: string;
-  onChange: (v: string) => void; onChangeTo?: (v: string) => void;
-  isDark: boolean; allOptions: Record<string, Opt[]>;
-}) {
+interface FilterRowInputProps {
+  row: FilterRow;
+  isDark: boolean;
+  fieldValues: Record<string, Opt[] | Record<string, Opt[]>>;
+  loadingKeys: Set<string>;
+  allRows: FilterRow[];
+  onChangeMulti: (id: string, vals: string[]) => void;
+  onChangeText: (id: string, val: string) => void;
+  onChangeDateTo: (id: string, val: string) => void;
+}
+
+function FilterRowInput({
+  row, isDark, fieldValues, loadingKeys, allRows,
+  onChangeMulti, onChangeText, onChangeDateTo,
+}: FilterRowInputProps) {
+  const { field } = row;
+
   const inputCls = isDark
     ? 'bg-[#1e3350] border-[#2d4a68] text-[#e2e8f0] placeholder-[#4a6580] focus:ring-[#3d6b9e] focus:border-[#3d6b9e]'
     : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400 focus:ring-brand-500 focus:border-brand-500';
@@ -315,230 +304,290 @@ function FilterInput({
     return (
       <div className="flex items-center gap-2 w-full">
         <div className="flex-1">
-          <DarkDatePicker value={value} onChange={onChange} placeholder="From date" compact />
+          <DarkDatePicker value={row.value} onChange={v => onChangeText(row.id, v)} placeholder="From date" compact />
         </div>
         <span className={`text-xs shrink-0 ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>→</span>
         <div className="flex-1">
-          <DarkDatePicker value={valueTo || ''} onChange={onChangeTo || (() => { })} placeholder="To date" compact />
+          <DarkDatePicker value={row.valueTo || ''} onChange={v => onChangeDateTo(row.id, v)} placeholder="To date" compact />
         </div>
       </div>
     );
   }
 
-  if (field.type === 'dropdown' && field.optionsKey) {
-    const opts = allOptions[field.optionsKey] || [];
-    return <SearchableSelect value={value} onChange={onChange} options={opts} placeholder={`Select ${field.label}`} isDark={isDark} />;
+  if (field.type === 'multiselect') {
+    const valuesKey = field.valuesKey || field.key;
+    let opts: Opt[] = (fieldValues[valuesKey] as Opt[]) || [];
+    let disabled = false;
+
+    // Subsource depends on Source
+    if (field.dependsOn) {
+      const depRow = allRows.find(r => r.field.key === field.dependsOn);
+      const selectedSources = depRow?.value ? depRow.value.split(',').filter(Boolean) : [];
+      if (selectedSources.length === 0) {
+        disabled = true;
+        opts = [];
+      } else {
+        const sourceToSubs = (fieldValues['source_to_subsource'] || {}) as Record<string, Opt[]>;
+        if (Object.keys(sourceToSubs).length > 0) {
+          const allowed = new Set<string>();
+          selectedSources.forEach(s => (sourceToSubs[s] || []).forEach(o => allowed.add(o.value)));
+          opts = ((fieldValues[valuesKey] as Opt[]) || []).filter(o => allowed.has(o.value));
+        }
+      }
+    }
+
+    const selected = row.value ? row.value.split(',').filter(Boolean) : [];
+    return (
+      <MultiSelectDropdown
+        value={selected}
+        onChange={vals => onChangeMulti(row.id, vals)}
+        options={opts}
+        placeholder={`Select ${field.label}...`}
+        isDark={isDark}
+        disabled={disabled}
+        loading={loadingKeys.has(valuesKey)}
+      />
+    );
   }
 
-  if ((field.type === 'status' || field.type === 'boolean') && field.staticOptions) {
-    return <SearchableSelect value={value} onChange={onChange} options={field.staticOptions} placeholder={`Select ${field.label}`} isDark={isDark} />;
-  }
-
+  // text
   return (
     <input
       className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 shadow-sm transition-colors ${inputCls}`}
       placeholder={`Enter ${field.label.toLowerCase()}...`}
-      value={value}
-      onChange={e => onChange(e.target.value)}
+      value={row.value}
+      onChange={e => onChangeText(row.id, e.target.value)}
     />
   );
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// ─── Default filter fields shown when drawer first opens ─────────────────────
+const DEFAULT_FILTER_KEYS = [
+  'project',
+  'booking_form_status',
+  'form_type',
+  'payment_mode',
+  'checking_verify_status',
+  'booking_form_date',
+  'bf_received_date',
+  'hold_date',
+  'verified_date',
+  'createdAt',
+];
+
+function makeDefaultRows(): FilterRow[] {
+  return DEFAULT_FILTER_KEYS
+    .map(key => FILTER_FIELDS.find(f => f.key === key))
+    .filter((f): f is FieldDef => !!f)
+    .map(field => ({ id: `${field.key}_default`, field, value: '', valueTo: '' }));
+}
+
+
 
 export interface AdvancedFilterDrawerProps {
   open: boolean;
   onClose: () => void;
-  // Filters that are already in basic filter bar — exclude from drawer
-  excludeKeys?: string[];
-  // Called when user clicks Apply — passes all extra filter params
   onApply: (filters: Record<string, string>) => void;
-  // Current active extra filters (for badge count, reset)
   activeFilters: Record<string, string>;
   theme?: 'blue' | 'green' | 'purple';
   storageKey?: string;
+  excludeKeys?: string[];
 }
-
-const STORAGE_VERSION = 'v2'; // bumped: full field list added
 
 export default function AdvancedFilterDrawer({
   open,
   onClose,
-  excludeKeys = ['search', 'fls_agent', 'mgr_agent', 'avp_agent', 'customer_name'],
   onApply,
   activeFilters,
   storageKey = 'fls_adv_drawer',
+  excludeKeys = [],
 }: AdvancedFilterDrawerProps) {
   const { isDark } = useFlsTheme();
 
-  // API options
-  const [allOptions, setAllOptions] = useState<Record<string, Opt[]>>({});
+  // Filter rows — pre-populated with default important fields
+  const [rows, setRows] = useState<FilterRow[]>(makeDefaultRows);
 
-  // Dynamic filter rows
-  const [dynamicFilters, setDynamicFilters] = useState<DynamicFilter[]>([]);
+  // Dynamic unique values per field fetched from backend
+  const [fieldValues, setFieldValues] = useState<Record<string, Opt[] | Record<string, Opt[]>>>({});
+  const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
+  const fetchedRef = useRef<Set<string>>(new Set());
 
-  // Add-field dropdown
-  const [addFieldOpen, setAddFieldOpen] = useState(false);
-  const [addFieldQuery, setAddFieldQuery] = useState('');
-  const addFieldRef = useRef<HTMLDivElement>(null);
+  // Add-field panel
+  const [addOpen, setAddOpen] = useState(false);
+  const [addQuery, setAddQuery] = useState('');
+  const addRef = useRef<HTMLDivElement>(null);
 
   // Section collapse
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
-  // Load options from API once
-  useEffect(() => {
-    api.get('/fls-booking/options').then(res => {
-      const d = res.data?.data || {};
-      setAllOptions({
-        unit_nos: (d.unit_nos || []).map((v: string) => ({ label: v, value: v })),
-        fls_agents: (d.fls_agents || []).map((a: any) => ({
-          label: a.fls_name ? `${a.fls_id} - ${a.fls_name}` : a.fls_id,
-          value: a.fls_id || a.fls_name,
-        })),
-        mgr_agents: (d.mgr_agents || []).map((a: any) => ({
-          label: a.mgr_name ? `${a.mgr_id} - ${a.mgr_name}` : a.mgr_id,
-          value: a.mgr_id || a.mgr_name,
-        })),
-        avp_agents: (d.avp_agents || []).map((a: any) => ({
-          label: a.avp_name ? `${a.avp_id} - ${a.avp_name}` : a.avp_id,
-          value: a.avp_id || a.avp_name,
-        })),
-        customers: (d.customers || []).map((c: { name: string }) => ({ label: c.name, value: c.name })),
-      });
-    }).catch(() => { });
-  }, []);
+  // ── Fetch unique values for a list of field keys
+  const fetchFieldValues = useCallback(async (keys: string[]) => {
+    const toFetch = keys.filter(k => !fetchedRef.current.has(k));
+    if (toFetch.length === 0) return;
+    toFetch.forEach(k => fetchedRef.current.add(k));
 
-  // Restore from localStorage, or seed default fields when list is empty
-  useEffect(() => {
-    const buildDefaults = (): DynamicFilter[] =>
-      DEFAULT_FILTER_KEYS
-        .map(key => ALL_FIELDS.find(f => f.key === key))
-        .filter((f): f is FieldDef => f !== undefined)
-        .map(field => ({ id: `${field.key}_default`, field, value: '', valueTo: '' }));
-
+    setLoadingKeys(prev => new Set(Array.from(prev).concat(toFetch)));
     try {
-      const saved = localStorage.getItem(`${storageKey}_${STORAGE_VERSION}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Only restore if there are actual filters saved; otherwise seed defaults
-        if (Array.isArray(parsed.dynamicFilters) && parsed.dynamicFilters.length > 0) {
-          setDynamicFilters(parsed.dynamicFilters);
-          return;
+      const res = await api.get('/fls-booking/filter-values', {
+        params: { fields: toFetch.join(',') },
+      });
+      const data: Record<string, any> = res.data?.data || {};
+      const mapped: Record<string, Opt[]> = {};
+
+      for (const [k, v] of Object.entries(data)) {
+        if (k === 'source_to_subsource') {
+          // Stored as-is (object map), not converted to Opt[]
+          setFieldValues(prev => ({ ...prev, source_to_subsource: v as any }));
+        } else if (Array.isArray(v)) {
+          mapped[k] = (v as string[]).filter(Boolean).map(val => ({ label: String(val), value: String(val) }));
         }
       }
-    } catch { }
-    // No saved filters or empty array — pre-populate with default important fields
-    setDynamicFilters(buildDefaults());
-  }, [storageKey]);
-
-  // Persist to localStorage — only save when the user has actually filled in at least one value
-  // or has customised the field list (added/removed compared to defaults).
-  // This prevents an all-blank default state from being written and blocking future seeding.
-  useEffect(() => {
-    const hasCustomisation =
-      dynamicFilters.some(f => f.value) ||
-      dynamicFilters.length !== DEFAULT_FILTER_KEYS.length ||
-      dynamicFilters.some((f, i) => f.field.key !== DEFAULT_FILTER_KEYS[i]);
-    try {
-      if (hasCustomisation) {
-        localStorage.setItem(`${storageKey}_${STORAGE_VERSION}`, JSON.stringify({ dynamicFilters }));
-      } else {
-        // Default blank state — remove so next open re-seeds cleanly
-        localStorage.removeItem(`${storageKey}_${STORAGE_VERSION}`);
+      if (Object.keys(mapped).length > 0) {
+        setFieldValues(prev => ({ ...prev, ...mapped }));
       }
-    } catch { }
-  }, [dynamicFilters, storageKey]);
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingKeys(prev => {
+        const next = new Set(Array.from(prev));
+        toFetch.forEach(k => next.delete(k));
+        return next;
+      });
+    }
+  }, []);
 
-  // Close add-field dropdown on outside click
+  // Pre-fetch values when rows change
+  useEffect(() => {
+    const keys: string[] = [];
+    let needsSubSourceMap = false;
+
+    rows.forEach(r => {
+      if (r.field.type === 'multiselect' && r.field.valuesKey) keys.push(r.field.valuesKey);
+      if (r.field.key === 'sub_source') needsSubSourceMap = true;
+    });
+
+    if (needsSubSourceMap) keys.push('sub_source_map');
+    if (keys.length > 0) fetchFieldValues(keys);
+  }, [rows, fetchFieldValues]);
+
+  // Restore rows from activeFilters when drawer opens
+  useEffect(() => {
+    if (open && Object.keys(activeFilters).length > 0) {
+      // Build restored rows from active filters
+      const restored: FilterRow[] = [];
+      for (const [key, val] of Object.entries(activeFilters)) {
+        if (key.endsWith('_to')) continue;
+        const field = FILTER_FIELDS.find(f => f.key === key);
+        if (!field) continue;
+        restored.push({
+          id: `${key}_restored`,
+          field,
+          value: val,
+          valueTo: activeFilters[`${key}_to`] || '',
+        });
+      }
+      if (restored.length > 0) {
+        // Merge: keep default rows that aren't in restored, plus all restored rows
+        setRows(prev => {
+          const restoredKeys = new Set(restored.map(r => r.field.key));
+          const defaults = prev.filter(r => !restoredKeys.has(r.field.key));
+          return [...restored, ...defaults];
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Close add-panel on outside click
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (addFieldRef.current && !addFieldRef.current.contains(e.target as Node)) setAddFieldOpen(false);
+      if (addRef.current && !addRef.current.contains(e.target as Node)) setAddOpen(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  // Close drawer on Escape
+  // Escape key closes drawer
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && open) onClose(); };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [open, onClose]);
 
-  // Lock body scroll when open
+  // Body scroll lock
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
-  // Active count badge
-  const activeCount = dynamicFilters.filter(f => f.value).length;
+  const activeCount = rows.filter(r => r.value && r.value.length > 0).length;
 
-  // Apply
+  // Apply filters
   const handleApply = useCallback(() => {
-    const extra: Record<string, string> = {};
-    dynamicFilters.forEach(f => {
-      if (f.value) {
-        extra[f.field.key] = f.value;
-        if (f.field.type === 'date' && f.valueTo) {
-          extra[`${f.field.key}_to`] = f.valueTo;
+    const out: Record<string, string> = {};
+    rows.forEach(r => {
+      if (r.value && r.value.length > 0) {
+        out[r.field.key] = r.value;
+        if (r.field.type === 'date' && r.valueTo) {
+          out[`${r.field.key}_to`] = r.valueTo;
         }
       }
     });
-    onApply(extra);
+    onApply(out);
     onClose();
-  }, [dynamicFilters, onApply, onClose]);
+  }, [rows, onApply, onClose]);
 
-  // Reset
+  // Reset all — restore default rows
   const handleReset = () => {
-    // Clear localStorage first so the persist effect doesn't re-save an empty array
-    try { localStorage.removeItem(`${storageKey}_${STORAGE_VERSION}`); } catch { }
-    // Restore default fields (with empty values) instead of going completely blank
-    const defaults: DynamicFilter[] = DEFAULT_FILTER_KEYS
-      .map(key => ALL_FIELDS.find(f => f.key === key))
-      .filter((f): f is FieldDef => f !== undefined)
-      .map(field => ({ id: `${field.key}_default`, field, value: '', valueTo: '' }));
-    setDynamicFilters(defaults);
+    setRows(makeDefaultRows());
     onApply({});
   };
 
-  // Add dynamic filter
-  const addDynamicFilter = (field: FieldDef, keepOpen = false) => {
-    if (dynamicFilters.some(f => f.field.key === field.key)) return;
-    setDynamicFilters(prev => [...prev, { id: `${field.key}_${Date.now()}`, field, value: '', valueTo: '' }]);
-    if (!keepOpen) {
-      setAddFieldOpen(false);
-      setAddFieldQuery('');
+  // Add a filter row
+  const addRow = (field: FieldDef) => {
+    if (rows.some(r => r.field.key === field.key)) return;
+    setRows(prev => [...prev, { id: `${field.key}_${Date.now()}`, field, value: '', valueTo: '' }]);
+    setAddOpen(false);
+    setAddQuery('');
+  };
+
+  const removeRow = (id: string) => setRows(prev => prev.filter(r => r.id !== id));
+
+  const handleChangeMulti = (id: string, vals: string[]) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, value: vals.join(',') } : r));
+    // When source changes, clear subsource
+    const row = rows.find(r => r.id === id);
+    if (row?.field.key === 'source') {
+      setRows(prev => prev.map(r => r.field.key === 'sub_source' ? { ...r, value: '' } : r));
     }
   };
 
-  const removeDynamicFilter = (id: string) => setDynamicFilters(prev => prev.filter(f => f.id !== id));
+  const handleChangeText = (id: string, val: string) =>
+    setRows(prev => prev.map(r => r.id === id ? { ...r, value: val } : r));
 
-  const updateDynamicFilter = (id: string, value: string, isTo?: boolean) => {
-    setDynamicFilters(prev => prev.map(f =>
-      f.id === id ? { ...f, ...(isTo ? { valueTo: value } : { value }) } : f,
-    ));
-  };
+  const handleChangeDateTo = (id: string, val: string) =>
+    setRows(prev => prev.map(r => r.id === id ? { ...r, valueTo: val } : r));
 
-  // Available fields (not already added, not in basic bar)
-  const usedKeys = new Set([...excludeKeys, ...dynamicFilters.map(f => f.field.key)]);
-  const availableFields = ALL_FIELDS.filter(f => !usedKeys.has(f.key));
-  const filteredAvailable = addFieldQuery
+  // Fields available for add-panel (not already added, not excluded)
+  const usedKeys = new Set([...excludeKeys, ...rows.map(r => r.field.key)] as string[]);
+  const availableFields = FILTER_FIELDS.filter(f => !usedKeys.has(f.key));
+  const filteredAvailable = addQuery
     ? availableFields.filter(f =>
-      f.label.toLowerCase().includes(addFieldQuery.toLowerCase()) ||
-      f.section.toLowerCase().includes(addFieldQuery.toLowerCase())
+      f.label.toLowerCase().includes(addQuery.toLowerCase()) ||
+      f.section.toLowerCase().includes(addQuery.toLowerCase()),
     )
     : availableFields;
 
-  // Group dynamic filters by section
-  const dynamicBySection = dynamicFilters.reduce<Record<string, DynamicFilter[]>>((acc, f) => {
-    const s = f.field.section;
+  const availableBySection = filteredAvailable.reduce<Record<string, FieldDef[]>>((acc, f) => {
+    if (!acc[f.section]) acc[f.section] = [];
+    acc[f.section].push(f);
+    return acc;
+  }, {});
+
+  const rowsBySection = rows.reduce<Record<string, FilterRow[]>>((acc, r) => {
+    const s = r.field.section;
     if (!acc[s]) acc[s] = [];
-    acc[s].push(f);
+    acc[s].push(r);
     return acc;
   }, {});
 
@@ -583,7 +632,7 @@ export default function AdvancedFilterDrawer({
           </button>
         </div>
 
-        {/* Body - scrollable */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth: 'thin' }}>
 
           {/* Add Filter button */}
@@ -591,16 +640,18 @@ export default function AdvancedFilterDrawer({
             <span className={`text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>
               Filter Fields
             </span>
-            <div className="relative" ref={addFieldRef}>
+
+            <div className="relative" ref={addRef}>
               <button
-                onClick={() => { setAddFieldOpen(v => !v); setAddFieldQuery(''); }}
+                onClick={() => { setAddOpen(v => !v); setAddQuery(''); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'bg-[#1e3350] border-[#3d6b9e] text-[#60a5fa] hover:bg-[#243b53]' : 'bg-white border-brand-300 text-brand-700 hover:bg-brand-50'}`}
               >
                 <Plus className="w-3.5 h-3.5" /> Add Filter Field
               </button>
 
-              {addFieldOpen && (
+              {addOpen && (
                 <div className={`absolute top-full right-0 mt-1 z-[600] w-72 border rounded-xl shadow-xl ${isDark ? 'bg-[#1e3350] border-[#2d4a68]' : 'bg-white border-gray-100'}`}>
+                  {/* Search */}
                   <div className={`p-2 border-b ${isDark ? 'border-[#2d4a68]' : 'border-gray-100'}`}>
                     <div className="relative">
                       <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`} />
@@ -608,43 +659,43 @@ export default function AdvancedFilterDrawer({
                         autoFocus
                         className={`w-full pl-8 pr-3 py-2 rounded-lg text-sm focus:outline-none border ${isDark ? 'bg-[#0a1929] border-[#2d4a68] text-[#e2e8f0] placeholder-[#4a6580]' : 'bg-gray-50 border-gray-200 text-gray-800 placeholder-gray-400'}`}
                         placeholder="Search fields..."
-                        value={addFieldQuery}
-                        onChange={e => setAddFieldQuery(e.target.value)}
+                        value={addQuery}
+                        onChange={e => setAddQuery(e.target.value)}
                       />
                     </div>
                   </div>
-                  {/* Select All */}
-                  {filteredAvailable.length > 0 && (
-                    <div className={`px-3 py-2 border-b ${isDark ? 'border-[#2d4a68]' : 'border-gray-100'}`}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          filteredAvailable.forEach(f => addDynamicFilter(f, true));
-                          setAddFieldOpen(false);
-                          setAddFieldQuery('');
-                        }}
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors
-                          ${isDark ? 'bg-[#243b53] border-[#3d6b9e] text-[#60a5fa] hover:bg-[#2d4a68]' : 'bg-brand-50 border-brand-300 text-brand-700 hover:bg-brand-100'}`}
-                      >
-                        <Plus className="w-3 h-3" /> Select All ({filteredAvailable.length} fields)
-                      </button>
-                    </div>
-                  )}
-                  <div className="max-h-72 overflow-y-auto">
-                    {Object.entries(
-                      filteredAvailable.reduce<Record<string, FieldDef[]>>((acc, f) => {
-                        if (!acc[f.section]) acc[f.section] = [];
-                        acc[f.section].push(f);
-                        return acc;
-                      }, {})
-                    ).map(([section, fields]) => (
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {/* Select All */}
+                    {filteredAvailable.length > 0 && (
+                      <div className={`px-3 py-2 border-b sticky top-0 z-10 ${isDark ? 'border-[#2d4a68] bg-[#1e3350]' : 'border-gray-100 bg-white'}`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            filteredAvailable.forEach(f => {
+                              if (!rows.some(r => r.field.key === f.key)) {
+                                setRows(prev => [...prev, { id: `${f.key}_${Date.now()}_${Math.random()}`, field: f, value: '', valueTo: '' }]);
+                              }
+                            });
+                            setAddOpen(false);
+                            setAddQuery('');
+                          }}
+                          className={`w-full text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors ${isDark ? 'bg-[#243b53] text-[#60a5fa] hover:bg-[#2d5070]' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'}`}
+                        >
+                          ＋ Select All ({filteredAvailable.length} fields)
+                        </button>
+                      </div>
+                    )}
+                    {Object.entries(availableBySection).map(([section, fields]) => (
                       <div key={section}>
                         <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest sticky top-0 ${isDark ? 'text-[#4d6d8a] bg-[#0a1929]' : 'text-gray-400 bg-gray-50'}`}>
                           {section}
                         </div>
                         {fields.map(f => (
-                          <button key={f.key} type="button"
-                            onClick={() => addDynamicFilter(f)}
+                          <button
+                            key={f.key}
+                            type="button"
+                            onClick={() => addRow(f)}
                             className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${isDark ? 'text-[#94a3b8] hover:bg-[#243b53] hover:text-[#e2e8f0]' : 'text-gray-700 hover:bg-brand-50 hover:text-brand-800'}`}
                           >
                             <span>{f.label}</span>
@@ -667,7 +718,7 @@ export default function AdvancedFilterDrawer({
           </div>
 
           {/* Empty state */}
-          {Object.keys(dynamicBySection).length === 0 && (
+          {rows.length === 0 && (
             <div className={`flex flex-col items-center justify-center py-16 gap-3 rounded-xl border-2 border-dashed ${isDark ? 'border-[#1e3350] text-[#4d6d8a]' : 'border-gray-200 text-gray-400'}`}>
               <SlidersHorizontal className="w-8 h-8 opacity-40" />
               <div className="text-center">
@@ -677,10 +728,9 @@ export default function AdvancedFilterDrawer({
             </div>
           )}
 
-          {/* Dynamic filter groups */}
-          {Object.entries(dynamicBySection).map(([section, filters]) => (
+          {/* Filter rows grouped by section */}
+          {Object.entries(rowsBySection).map(([section, sectionRows]) => (
             <div key={section} className="mb-5">
-              {/* Section header */}
               <button
                 type="button"
                 onClick={() => setCollapsedSections(s => ({ ...s, [section]: !s[section] }))}
@@ -694,26 +744,34 @@ export default function AdvancedFilterDrawer({
 
               {!collapsedSections[section] && (
                 <div className="flex flex-col gap-3">
-                  {filters.map(df => (
-                    <div key={df.id} className={`rounded-xl p-3 border ${cardBg}`}>
+                  {sectionRows.map(row => (
+                    <div key={row.id} className={`rounded-xl p-3 border ${cardBg}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <label className={`text-xs font-semibold ${labelCls}`}>{df.field.label}</label>
+                        <label className={`text-xs font-semibold ${labelCls}`}>
+                          {row.field.label}
+                          {row.field.dependsOn && (
+                            <span className={`ml-1 text-[10px] italic ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>
+                              (depends on Source)
+                            </span>
+                          )}
+                        </label>
                         <button
-                          onClick={() => removeDynamicFilter(df.id)}
-                          className="w-5 h-5 flex items-center justify-center rounded-full text-red-400 hover:bg-red-50 transition-colors"
+                          onClick={() => removeRow(row.id)}
+                          className="w-5 h-5 flex items-center justify-center rounded-full text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                           title="Remove filter"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
-                      <FilterInput
-                        field={df.field}
-                        value={df.value}
-                        valueTo={df.valueTo}
-                        onChange={v => updateDynamicFilter(df.id, v)}
-                        onChangeTo={v => updateDynamicFilter(df.id, v, true)}
+                      <FilterRowInput
+                        row={row}
                         isDark={isDark}
-                        allOptions={allOptions}
+                        fieldValues={fieldValues}
+                        loadingKeys={loadingKeys}
+                        allRows={rows}
+                        onChangeMulti={handleChangeMulti}
+                        onChangeText={handleChangeText}
+                        onChangeDateTo={handleChangeDateTo}
                       />
                     </div>
                   ))}
@@ -725,7 +783,7 @@ export default function AdvancedFilterDrawer({
 
         {/* Footer */}
         <div className={`flex items-center gap-2 px-5 py-4 border-t flex-shrink-0 ${headerBg} ${borderCls}`}>
-          {activeCount > 0 && (
+          {rows.length > 0 && (
             <button
               onClick={handleReset}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border transition-colors ${isDark ? 'border-red-700 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}

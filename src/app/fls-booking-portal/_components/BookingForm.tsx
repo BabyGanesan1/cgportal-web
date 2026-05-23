@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Upload, FileText, Eye, Download } from 'lucide-react';
 import api from '../../../lib/api';
@@ -104,6 +104,92 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Dropdown option state (dynamic search — options load on typing) ────────
+  const [projectOptions, setProjectOptions] = useState<{ value: string; label: string }[]>([]);
+  const [flsOptions, setFlsOptions] = useState<{ value: string; label: string; name: string }[]>([]);
+  const [mgrOptions, setMgrOptions] = useState<{ value: string; label: string; name: string }[]>([]);
+  const [avpOptions, setAvpOptions] = useState<{ value: string; label: string; name: string }[]>([]);
+
+  // Debounce timers for search
+  const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flsSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mgrSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const avpSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchProjects = useCallback((q: string) => {
+    if (!q.trim()) { setProjectOptions([]); return; }
+    if (projectSearchTimer.current) clearTimeout(projectSearchTimer.current);
+    projectSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-booking/filter-values?fields=project&q=${encodeURIComponent(q)}`).then(r => {
+        const vals: string[] = r.data?.data?.project || [];
+        setProjectOptions(vals.map(v => ({ value: v, label: v })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchFls = useCallback((q: string) => {
+    if (!q.trim()) { setFlsOptions([]); return; }
+    if (flsSearchTimer.current) clearTimeout(flsSearchTimer.current);
+    flsSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-masters/fls?q=${encodeURIComponent(q)}`).then(r => {
+        const rows = r.data?.data || [];
+        setFlsOptions(rows.map((x: any) => ({ value: x.fls_id, label: `${x.fls_id} — ${x.fls_name}`, name: x.fls_name })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchMgr = useCallback((q: string) => {
+    if (!q.trim()) { setMgrOptions([]); return; }
+    if (mgrSearchTimer.current) clearTimeout(mgrSearchTimer.current);
+    mgrSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-masters/mgr?q=${encodeURIComponent(q)}`).then(r => {
+        const rows = r.data?.data || [];
+        setMgrOptions(rows.map((x: any) => ({ value: x.mgr_id, label: `${x.mgr_id} — ${x.mgr_name}`, name: x.mgr_name })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchAvp = useCallback((q: string) => {
+    if (!q.trim()) { setAvpOptions([]); return; }
+    if (avpSearchTimer.current) clearTimeout(avpSearchTimer.current);
+    avpSearchTimer.current = setTimeout(() => {
+      api.get(`/fls-masters/avp?q=${encodeURIComponent(q)}`).then(r => {
+        const rows = r.data?.data || [];
+        setAvpOptions(rows.map((x: any) => ({ value: x.avp_id, label: `${x.avp_id} — ${x.avp_name}`, name: x.avp_name })));
+      }).catch(() => { });
+    }, 300);
+  }, []);
+
+  // ── Dynamic search for "by whom" fields ─────────────────────────────────
+  const [bfReceivedByOptions, setBfReceivedByOptions] = useState<{ value: string; label: string }[]>([]);
+  const [verifiedByOptions, setVerifiedByOptions] = useState<{ value: string; label: string }[]>([]);
+  const bfReceivedByTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const verifiedByTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchBfReceivedBy = useCallback((q: string) => {
+    if (!q.trim()) { setBfReceivedByOptions([]); return; }
+    if (bfReceivedByTimer.current) clearTimeout(bfReceivedByTimer.current);
+    bfReceivedByTimer.current = setTimeout(() => {
+      api.get(`/fls-booking/filter-values?fields=booking_form_received_by_whom&q=${encodeURIComponent(q)}`)
+        .then(r => {
+          const vals: string[] = r.data?.data?.booking_form_received_by_whom || [];
+          setBfReceivedByOptions(vals.map(v => ({ value: v, label: v })));
+        }).catch(() => { });
+    }, 300);
+  }, []);
+
+  const searchVerifiedBy = useCallback((q: string) => {
+    if (!q.trim()) { setVerifiedByOptions([]); return; }
+    if (verifiedByTimer.current) clearTimeout(verifiedByTimer.current);
+    verifiedByTimer.current = setTimeout(() => {
+      api.get(`/fls-booking/filter-values?fields=verified_by_whom&q=${encodeURIComponent(q)}`)
+        .then(r => {
+          const vals: string[] = r.data?.data?.verified_by_whom || [];
+          setVerifiedByOptions(vals.map(v => ({ value: v, label: v })));
+        }).catch(() => { });
+    }, 300);
+  }, []);
+
   const acknowledgement = watch('acknowledgement');
   const checkingVerified = initialValues?.checking_verify_status === 'verified';
 
@@ -113,9 +199,28 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
       if (initialValues.attachments) {
         try { setAttachedFiles(JSON.parse(initialValues.attachments)); } catch { }
       }
-      if (initialValues.fls_id) lookupMasterName('fls', initialValues.fls_id, 'fls_name');
-      if (initialValues.mgr_id) lookupMasterName('mgr', initialValues.mgr_id, 'mgr_name');
-      if (initialValues.avp_id) lookupMasterName('avp', initialValues.avp_id, 'avp_name');
+      // Pre-populate dropdown option for the currently selected value so it shows correctly in edit mode
+      if (initialValues.project) {
+        setProjectOptions([{ value: initialValues.project, label: initialValues.project }]);
+      }
+      if (initialValues.fls_id) {
+        lookupMasterName('fls', initialValues.fls_id, 'fls_name');
+        setFlsOptions([{ value: initialValues.fls_id, label: `${initialValues.fls_id} — ${initialValues.fls_name || ''}`, name: initialValues.fls_name || '' }]);
+      }
+      if (initialValues.mgr_id) {
+        lookupMasterName('mgr', initialValues.mgr_id, 'mgr_name');
+        setMgrOptions([{ value: initialValues.mgr_id, label: `${initialValues.mgr_id} — ${initialValues.mgr_name || ''}`, name: initialValues.mgr_name || '' }]);
+      }
+      if (initialValues.avp_id) {
+        lookupMasterName('avp', initialValues.avp_id, 'avp_name');
+        setAvpOptions([{ value: initialValues.avp_id, label: `${initialValues.avp_id} — ${initialValues.avp_name || ''}`, name: initialValues.avp_name || '' }]);
+      }
+      if (initialValues.booking_form_received_by_whom) {
+        setBfReceivedByOptions([{ value: initialValues.booking_form_received_by_whom, label: initialValues.booking_form_received_by_whom }]);
+      }
+      if (initialValues.verified_by_whom) {
+        setVerifiedByOptions([{ value: initialValues.verified_by_whom, label: initialValues.verified_by_whom }]);
+      }
     }
   }, [initialValues]);
 
@@ -166,6 +271,13 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
     if (!idValue?.trim() || !nameValue?.trim()) return;
     try {
       await api.post(`/fls-masters/${endpoint}/upsert`, { [idField]: idValue.trim(), [nameField]: nameValue.trim() });
+      if (endpoint === 'fls') {
+        setFlsOptions(prev => prev.map(o => o.value === idValue ? { ...o, label: `${idValue} — ${nameValue}`, name: nameValue } : o));
+      } else if (endpoint === 'mgr') {
+        setMgrOptions(prev => prev.map(o => o.value === idValue ? { ...o, label: `${idValue} — ${nameValue}`, name: nameValue } : o));
+      } else if (endpoint === 'avp') {
+        setAvpOptions(prev => prev.map(o => o.value === idValue ? { ...o, label: `${idValue} — ${nameValue}`, name: nameValue } : o));
+      }
     } catch { }
   };
 
@@ -285,7 +397,33 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
 
           {sec('Project & Unit Info')}
-          {f('project', 'Project')}
+          {/* Project — dynamic search dropdown */}
+          <div>
+            <label className={cls.LABEL}>Project{reqStar('project')}</label>
+            <CommonSelect
+              options={projectOptions}
+              value={watch('project') || ''}
+              onChange={v => {
+                setValue('project', v, { shouldDirty: true });
+                if (v) {
+                  clearErrors('project' as any);
+                  setProjectOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: v }];
+                    }
+                    return prev;
+                  });
+                }
+              }}
+              onInputChange={searchProjects}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search project..."
+              disabled={checkingVerified}
+              hasError={!!(errors as any).project}
+            />
+            {errMsg('project')}
+          </div>
           {f('region', 'Region')}
           {f('stock', 'Stock')}
           {f('pl_team', 'P & L Team')}
@@ -304,7 +442,26 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {f('gross_sales', 'Gross Sales')}
 
           {/* Booking Form Status — CommonSelect */}
-          {f('booking_form_status', 'Booking Form Status')}
+          {/* {f('booking_form_status', 'Booking Form Status')} */}
+          <div>
+            <label className={cls.LABEL}>
+              Booking Form Status<span className="text-red-500 ml-0.5">*</span>
+            </label>
+
+            <CommonSelect
+              options={BOOKING_STATUS_OPTIONS}
+              value={watch('booking_form_status') || 'N'}
+              onChange={v => {
+                setValue('booking_form_status', v, { shouldDirty: true });
+                if (v) clearErrors('booking_form_status' as any);
+              }}
+              placeholder="Select Status"
+              disabled={checkingVerified}
+              hasError={!!(errors as any).booking_form_status}
+            />
+
+            {errMsg('booking_form_status')}
+          </div>
           {/* <div>
             <label className={cls.LABEL}>
               Booking Form Status<span className="text-red-500 ml-0.5">*</span>
@@ -338,7 +495,25 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
 
           {sec('Booking Form Details')}
           {fd('bf_received_date', 'BF Received Date')}
-          {f('booking_form_received_by_whom', 'BF Received By Whom')}
+          {/* BF Received By Whom — dynamic search + free-text */}
+          <div>
+            <label className={cls.LABEL}>BF Received By Whom{reqStar('booking_form_received_by_whom')}</label>
+            <CommonSelect
+              options={bfReceivedByOptions}
+              value={watch('booking_form_received_by_whom') || ''}
+              onChange={v => {
+                setValue('booking_form_received_by_whom', v, { shouldDirty: true });
+                if (v) clearErrors('booking_form_received_by_whom' as any);
+              }}
+              onInputChange={searchBfReceivedBy}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search or enter name..."
+              disabled={checkingVerified}
+              hasError={!!(errors as any).booking_form_received_by_whom}
+            />
+            {errMsg('booking_form_received_by_whom')}
+          </div>
           {fd('hold_date', 'Hold Date')}
           {fd('file_transfer_date', 'File Transfer Date')}
           {fa('file_transfer_details', 'File Transfer Details')}
@@ -346,13 +521,35 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
 
           {sec('FLS & Manager Info')}
 
+          {/* FLS ID — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>FLS ID<span className="text-red-500 ml-0.5">*</span></label>
-            <input
-              {...register('fls_id', { required: 'FLS ID is required' })}
-              type="text" className={iCls('fls_id')} placeholder="FLS ID"
+            <CommonSelect
+              options={flsOptions}
+              value={watch('fls_id') || ''}
+              onChange={v => {
+                setValue('fls_id', v, { shouldDirty: true });
+                if (v) {
+                  clearErrors('fls_id' as any);
+                  const match = flsOptions.find(o => o.value === v);
+                  setValue('fls_name', match?.name || '', { shouldDirty: true });
+                  if (match?.name) clearErrors('fls_name' as any);
+                  setFlsOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: `${v} — (New)`, name: '' }];
+                    }
+                    return prev;
+                  });
+                } else {
+                  setValue('fls_name', '', { shouldDirty: true });
+                }
+              }}
+              onInputChange={searchFls}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search FLS ID..."
               disabled={checkingVerified}
-              onBlur={e => !checkingVerified && lookupMasterName('fls', e.target.value, 'fls_name')}
+              hasError={!!(errors as any).fls_id}
             />
             {errMsg('fls_id')}
           </div>
@@ -366,13 +563,36 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
             />
             {errMsg('fls_name')}
           </div>
+
+          {/* Manager ID — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>Manager ID<span className="text-red-500 ml-0.5">*</span></label>
-            <input
-              {...register('mgr_id', { required: 'Manager ID is required' })}
-              type="text" className={iCls('mgr_id')} placeholder="Manager ID"
+            <CommonSelect
+              options={mgrOptions}
+              value={watch('mgr_id') || ''}
+              onChange={v => {
+                setValue('mgr_id', v, { shouldDirty: true });
+                if (v) {
+                  clearErrors('mgr_id' as any);
+                  const match = mgrOptions.find(o => o.value === v);
+                  setValue('mgr_name', match?.name || '', { shouldDirty: true });
+                  if (match?.name) clearErrors('mgr_name' as any);
+                  setMgrOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: `${v} — (New)`, name: '' }];
+                    }
+                    return prev;
+                  });
+                } else {
+                  setValue('mgr_name', '', { shouldDirty: true });
+                }
+              }}
+              onInputChange={searchMgr}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search Manager ID..."
               disabled={checkingVerified}
-              onBlur={e => !checkingVerified && lookupMasterName('mgr', e.target.value, 'mgr_name')}
+              hasError={!!(errors as any).mgr_id}
             />
             {errMsg('mgr_id')}
           </div>
@@ -386,13 +606,36 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
             />
             {errMsg('mgr_name')}
           </div>
+
+          {/* AVP ID — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>AVP ID<span className="text-red-500 ml-0.5">*</span></label>
-            <input
-              {...register('avp_id', { required: 'AVP ID is required' })}
-              type="text" className={iCls('avp_id')} placeholder="AVP ID"
+            <CommonSelect
+              options={avpOptions}
+              value={watch('avp_id') || ''}
+              onChange={v => {
+                setValue('avp_id', v, { shouldDirty: true });
+                if (v) {
+                  clearErrors('avp_id' as any);
+                  const match = avpOptions.find(o => o.value === v);
+                  setValue('avp_name', match?.name || '', { shouldDirty: true });
+                  if (match?.name) clearErrors('avp_name' as any);
+                  setAvpOptions(prev => {
+                    if (!prev.some(o => o.value === v)) {
+                      return [...prev, { value: v, label: `${v} — (New)`, name: '' }];
+                    }
+                    return prev;
+                  });
+                } else {
+                  setValue('avp_name', '', { shouldDirty: true });
+                }
+              }}
+              onInputChange={searchAvp}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search AVP ID..."
               disabled={checkingVerified}
-              onBlur={e => !checkingVerified && lookupMasterName('avp', e.target.value, 'avp_name')}
+              hasError={!!(errors as any).avp_id}
             />
             {errMsg('avp_id')}
           </div>
@@ -456,7 +699,25 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {fd('sent_for_cit_verification_date', 'Sent for CIT Verification Date')}
           {f('sf_record_id', 'SF Record ID')}
           {f('status_of_cit_verification', 'Status of CIT Verification')}
-          {f('verified_by_whom', 'Verified By Whom')}
+          {/* Verified By Whom — dynamic search + free-text */}
+          <div>
+            <label className={cls.LABEL}>Verified By Whom{reqStar('verified_by_whom')}</label>
+            <CommonSelect
+              options={verifiedByOptions}
+              value={watch('verified_by_whom') || ''}
+              onChange={v => {
+                setValue('verified_by_whom', v, { shouldDirty: true });
+                if (v) clearErrors('verified_by_whom' as any);
+              }}
+              onInputChange={searchVerifiedBy}
+              isDynamicSearch={true}
+              isCreatable={true}
+              placeholder="Type to search or enter name..."
+              disabled={checkingVerified}
+              hasError={!!(errors as any).verified_by_whom}
+            />
+            {errMsg('verified_by_whom')}
+          </div>
           {fd('verified_date', 'Verified Date')}
 
           {sec('Contact Info')}

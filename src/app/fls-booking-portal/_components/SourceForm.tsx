@@ -46,7 +46,14 @@ const SOURCE_FIELDS = [
   'sf_lead2', 'sf_lead2_clone', 'sf_lead_id2_owner', 'pushed_date_lead2', 'sf_lead2_walkin_date', 'walkin_project_lead2',
   'sf_lead3', 'sf_lead3_clone', 'sf_lead_id3_owner', 'pushed_date_lead3', 'sf_lead3_walkin_date', 'walkin_project_lead3',
   'sell_do_lead1', 'sell_do_lead2', 'sell_do_lead3',
-  'walk_in_date', 'lead_remarks', 'source_verify_status',
+  'walk_in_date', 'lead_remarks', 'source_verify_status', 'phone_number_1',
+  'phone_number_2',
+  'phone_number_3',
+  'phone_number_4',
+  'mail_id_1',
+  'mail_id_2',
+  'mail_id_3',
+  'mail_id_4',
 ];
 
 const SOURCE_OPTIONS = [
@@ -203,7 +210,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
             placeholder="Select Type"
             disabled={checkingVerified}
           />
-          {txt('source_customer_name', 'Customer Name (Source)', HALF)}
+          {txt('source_customer_name', 'Customer Name', HALF)}
 
           {sec('SF Lead 1')}
           {txt('sf_lead_id1', 'SF Lead ID 1')}
@@ -238,16 +245,16 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dt('walk_in_date', 'Walk In Date')}
 
           {/* Source Verify Status — CommonSelect (fixed: was incorrectly bound to `source`) */}
-          <CommonSelect
+          {/* <CommonSelect
             label="Source Verify Status"
             options={VERIFY_STATUS_OPTIONS}
             value={watch('source_verify_status') || ''}
             onChange={v => setValue('source_verify_status', v, { shouldDirty: true })}
             placeholder="Select Status"
             disabled={checkingVerified}
-          />
+          /> */}
 
-          <div className={HALF}>
+          {/* <div className={HALF}>
             <label className={cls.LABEL}>
               Lead Remarks
               {(verifyStatus === 'hold' || verifyStatus === 'canceled') && (
@@ -265,7 +272,17 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
               }
               disabled={checkingVerified}
             />
-          </div>
+          </div> */}
+
+          {sec('Contact Info')}
+          {txt('phone_number_1', 'Phone Number 1')}
+          {txt('phone_number_2', 'Phone Number 2')}
+          {txt('phone_number_3', 'Phone Number 3')}
+          {txt('phone_number_4', 'Phone Number 4')}
+          {txt('mail_id_1', 'Mail ID 1')}
+          {txt('mail_id_2', 'Mail ID 2')}
+          {txt('mail_id_3', 'Mail ID 3')}
+          {txt('mail_id_4', 'Mail ID 4')}
 
           {sec('Booking Info', '(read only)')}
           {dis('region', 'Region')}
@@ -324,15 +341,6 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dis('verified_by_whom', 'Verified By Whom')}
           {dis('verified_date', 'Verified Date')}
 
-          {sec('Contact Info', '(read only)')}
-          {dis('phone_number_1', 'Phone Number 1')}
-          {dis('phone_number_2', 'Phone Number 2')}
-          {dis('phone_number_3', 'Phone Number 3')}
-          {dis('phone_number_4', 'Phone Number 4')}
-          {dis('mail_id_1', 'Mail ID 1')}
-          {dis('mail_id_2', 'Mail ID 2')}
-          {dis('mail_id_3', 'Mail ID 3')}
-          {dis('mail_id_4', 'Mail ID 4')}
 
           {sec('Booking Remarks', '(read only)')}
           {disArea('remarks', 'Remarks')}

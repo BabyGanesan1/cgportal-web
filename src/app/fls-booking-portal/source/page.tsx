@@ -38,7 +38,7 @@ export default function FlsSourceListPage() {
       ...extraFilters,
     };
     if (dateFrom) params.date_from = dateFrom;
-    if (dateTo)   params.date_to   = dateTo;
+    if (dateTo) params.date_to = dateTo;
     return params;
   }, [page, search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo, extraFilters]);
 
@@ -70,7 +70,7 @@ export default function FlsSourceListPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { ...buildParams(1), limit: 10000, type: 'source' };
+      const params = { ...buildParams(1), limit: 10000, export_type: 'source' };
       const res = await api.get('/fls-booking/export', { params, responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a'); a.href = url;
@@ -81,15 +81,15 @@ export default function FlsSourceListPage() {
     finally { setExporting(false); }
   };
 
-  const verified = data.filter(r => r.source_verify_status === 'verified').length;
-  const hold     = data.filter(r => r.source_verify_status === 'hold').length;
-  const canceled = data.filter(r => r.source_verify_status === 'canceled').length;
+  const verified = data.filter(r => r.checking_verify_status === 'verified').length;
+  const hold = data.filter(r => r.checking_verify_status === 'hold').length;
+  const canceled = data.filter(r => r.checking_verify_status === 'canceled').length;
 
   const stats = [
-    { label: 'Total Records', value: total,    icon: BarChart2,    color: 'text-blue-600',    bg: 'bg-blue-50',    bar: 'bg-blue-500'   },
-    { label: 'Verified',      value: verified,  icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500'},
-    { label: 'Hold',          value: hold,      icon: Clock,        color: 'text-yellow-600',  bg: 'bg-yellow-50',  bar: 'bg-yellow-500' },
-    { label: 'Canceled',      value: canceled,  icon: XCircle,      color: 'text-red-600',     bg: 'bg-red-50',     bar: 'bg-red-500'    },
+    { label: 'Total Bookings', value: total, icon: BarChart2, color: 'text-blue-600', bg: 'bg-blue-50', bar: 'bg-blue-500' },
+    { label: 'Verified Booking', value: verified, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500' },
+    { label: 'Hold Booking', value: hold, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', bar: 'bg-yellow-500' },
+    { label: 'Canceled Booking', value: canceled, icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', bar: 'bg-red-500' },
   ];
 
   return (
@@ -112,14 +112,14 @@ export default function FlsSourceListPage() {
       </div>
 
       <FlsFilter
-        search={search}       onSearchChange={v => { setSearch(v); resetPage(); }}
-        unitNo={unitNo}       onUnitNoChange={v => { setUnitNo(v); resetPage(); }}
-        flsAgent={flsAgent}   onFlsAgentChange={v => { setFlsAgent(v); resetPage(); }}
-        mgrAgent={mgrAgent}   onMgrAgentChange={v => { setMgrAgent(v); resetPage(); }}
-        avpAgent={avpAgent}   onAvpAgentChange={v => { setAvpAgent(v); resetPage(); }}
+        search={search} onSearchChange={v => { setSearch(v); resetPage(); }}
+        unitNo={unitNo} onUnitNoChange={v => { setUnitNo(v); resetPage(); }}
+        flsAgent={flsAgent} onFlsAgentChange={v => { setFlsAgent(v); resetPage(); }}
+        mgrAgent={mgrAgent} onMgrAgentChange={v => { setMgrAgent(v); resetPage(); }}
+        avpAgent={avpAgent} onAvpAgentChange={v => { setAvpAgent(v); resetPage(); }}
         customerName={customerName} onCustomerNameChange={v => { setCustomerName(v); resetPage(); }}
-        dateFrom={dateFrom}   onDateFromChange={v => { setDateFrom(v); resetPage(); }}
-        dateTo={dateTo}       onDateToChange={v => { setDateTo(v); resetPage(); }}
+        dateFrom={dateFrom} onDateFromChange={v => { setDateFrom(v); resetPage(); }}
+        dateTo={dateTo} onDateToChange={v => { setDateTo(v); resetPage(); }}
         onExport={handleExport} exporting={exporting}
         theme="purple"
         extraFilters={extraFilters}
