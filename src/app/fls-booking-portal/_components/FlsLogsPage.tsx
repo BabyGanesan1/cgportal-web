@@ -68,6 +68,7 @@ const FIELD_LABELS: Record<string, string> = {
   construction_cost: 'Construction Cost', msp_custom_amount: 'MSP Custom Amount',
   offer: 'Offer', offer_description: 'Offer Description', upfront_details: 'Upfront Details',
   source_verify_status: 'Source Verify Status', customer_type: 'Customer Type',
+  verify_status_remarks: 'Verify Status Change Reason',
   source_customer_name: 'Customer Name (Source)', source_taken_lead: 'Source Taken Lead',
   pushed_date: 'Pushed Date', source: 'Source', sub_source: 'Sub Source',
   iden_date: 'Iden Date', source_remarks: 'Source Remarks',

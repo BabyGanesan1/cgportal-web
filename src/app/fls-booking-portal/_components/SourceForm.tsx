@@ -54,6 +54,18 @@ const SOURCE_FIELDS = [
   'mail_id_2',
   'mail_id_3',
   'mail_id_4',
+  // MSP Calculations
+  'msp', 'msp_amount', 'taken_price', 'discount',
+  'msp_land_cost', 'msp_construction_cost',
+  'taken_land_cost', 'taken_construction_cost',
+  'msp_apartment_cost', 'taken_apartment_cost',
+  'msp_custom_amount',
+];
+
+const MSP_OPTIONS = [
+  { value: 'villa', label: 'Villa' },
+  { value: 'apartment', label: 'Apartment' },
+  { value: 'others', label: 'Others' },
 ];
 
 const SOURCE_OPTIONS = [
@@ -100,6 +112,49 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
 
   const verifyStatus = watch('source_verify_status');
   const checkingVerified = initialValues?.checking_verify_status === 'verified';
+
+  // MSP Calculations
+  const msp = watch('msp');
+  const mspLandCost = watch('msp_land_cost');
+  const mspConstructionCost = watch('msp_construction_cost');
+  const takenLandCost = watch('taken_land_cost');
+  const takenConstructionCost = watch('taken_construction_cost');
+  const mspApartmentCost = watch('msp_apartment_cost');
+  const takenApartmentCost = watch('taken_apartment_cost');
+  const mspCustomAmount = watch('msp_custom_amount');
+
+  // Auto-calculate MSP amount, Taken amount, and Discount
+  useEffect(() => {
+    if (!msp) return;
+    let mspAmount = 0;
+    let takenAmount = 0;
+    let mspReady = false;
+    let takenReady = false;
+    if (msp === 'villa') {
+      const lc = parseFloat(mspLandCost);
+      const cc = parseFloat(mspConstructionCost);
+      const tlc = parseFloat(takenLandCost);
+      const tcc = parseFloat(takenConstructionCost);
+      if (!isNaN(lc) && !isNaN(cc)) { mspAmount = lc + cc; mspReady = true; }
+      if (!isNaN(tlc) && !isNaN(tcc)) { takenAmount = tlc + tcc; takenReady = true; }
+    } else if (msp === 'apartment') {
+      const ac = parseFloat(mspApartmentCost);
+      const tac = parseFloat(takenApartmentCost);
+      if (!isNaN(ac)) { mspAmount = ac; mspReady = true; }
+      if (!isNaN(tac)) { takenAmount = tac; takenReady = true; }
+    } else if (msp === 'others') {
+      const ca = parseFloat(mspCustomAmount);
+      if (!isNaN(ca)) { mspAmount = ca; mspReady = true; }
+    }
+    setValue('msp_amount', mspReady ? mspAmount.toFixed(2) : '', { shouldDirty: true });
+    setValue('taken_price', takenReady ? takenAmount.toFixed(2) : '', { shouldDirty: true });
+    if (mspReady && takenReady) {
+      const disc = Math.max(0, mspAmount - takenAmount);
+      setValue('discount', disc.toFixed(2), { shouldDirty: true });
+    } else {
+      setValue('discount', '', { shouldDirty: true });
+    }
+  }, [msp, mspLandCost, mspConstructionCost, takenLandCost, takenConstructionCost, mspApartmentCost, takenApartmentCost, mspCustomAmount]);
 
   useEffect(() => {
     if (initialValues) {
@@ -283,6 +338,113 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {txt('mail_id_2', 'Mail ID 2')}
           {txt('mail_id_3', 'Mail ID 3')}
           {txt('mail_id_4', 'Mail ID 4')}
+
+          {sec('MSP Calculations')}
+          {/* Category selector — always visible */}
+          <div>
+            <label className={cls.LABEL}>Category</label>
+            <CommonSelect
+              options={MSP_OPTIONS}
+              value={watch('msp') || ''}
+              onChange={v => setValue('msp', v, { shouldDirty: true })}
+              placeholder="Select Category"
+              disabled={checkingVerified}
+            />
+          </div>
+
+          {/* Villa layout: Land Cost + Construction Cost in separate MSP/Taken rows */}
+          {msp === 'villa' && (
+            <>
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-slate-400' : 'text-brand-700'}`}>MSP</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                  <div>
+                    <label className={cls.LABEL}>Land Cost</label>
+                    <input {...register('msp_land_cost')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                      placeholder="Land Cost" disabled={checkingVerified} />
+                  </div>
+                  <div>
+                    <label className={cls.LABEL}>Construction Cost</label>
+                    <input {...register('msp_construction_cost')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                      placeholder="Construction Cost" disabled={checkingVerified} />
+                  </div>
+                  <div>
+                    <label className={cls.LABEL}>MSP Amount </label>
+                    <input {...register('msp_amount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-slate-400' : 'text-brand-700'}`}>Taken</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                  <div>
+                    <label className={cls.LABEL}>Land Cost</label>
+                    <input {...register('taken_land_cost')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                      placeholder="Land Cost" disabled={checkingVerified} />
+                  </div>
+                  <div>
+                    <label className={cls.LABEL}>Construction Cost</label>
+                    <input {...register('taken_construction_cost')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                      placeholder="Construction Cost" disabled={checkingVerified} />
+                  </div>
+                  <div>
+                    <label className={cls.LABEL}>Taken Amount </label>
+                    <input {...register('taken_price')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                </div>
+              </div>
+              {/* Discount — only shown when both msp_amount and taken_price are calculated */}
+              {(watch('msp_amount') && watch('taken_price')) ? (
+                <div>
+                  <label className={cls.LABEL}>Discount </label>
+                  <input {...register('discount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {/* Others: single custom MSP amount field + auto discount */}
+          {msp === 'others' && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                <div>
+                  <label className={cls.LABEL}>MSP Custom Amount</label>
+                  <input {...register('msp_custom_amount')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                    placeholder="MSP Custom Amount" disabled={checkingVerified} />
+                </div>
+                {watch('msp_custom_amount') ? (
+                  <div>
+                    <label className={cls.LABEL}>MSP Amount </label>
+                    <input {...register('msp_amount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* Apartment layout: MSP Amount | Taken Amount | Discount in one row */}
+          {msp === 'apartment' && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                <div>
+                  <label className={cls.LABEL}>MSP Amount</label>
+                  <input {...register('msp_apartment_cost')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                    placeholder="MSP Amount" disabled={checkingVerified} />
+                </div>
+                <div>
+                  <label className={cls.LABEL}>Taken Amount</label>
+                  <input {...register('taken_apartment_cost')} type="text" className={checkingVerified ? cls.DISABLED : cls.INPUT}
+                    placeholder="Taken Amount" disabled={checkingVerified} />
+                </div>
+                {(watch('msp_apartment_cost') && watch('taken_apartment_cost')) ? (
+                  <div>
+                    <label className={cls.LABEL}>Discount</label>
+                    <input {...register('discount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {sec('Booking Info', '(read only)')}
           {dis('region', 'Region')}

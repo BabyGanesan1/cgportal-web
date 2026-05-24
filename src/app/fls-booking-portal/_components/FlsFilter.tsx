@@ -125,8 +125,7 @@ function SearchableSelect({ value, onChange, options, placeholder, width = 'w-36
               key={opt.value}
               type="button"
               onClick={() => { onChange(opt.value); setOpen(false); setQuery(''); }}
-              className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${value === opt.value ? itemActive : itemBase
-                }`}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${value === opt.value ? itemActive : itemBase}`}
             >
               {opt.label}
             </button>
@@ -136,6 +135,12 @@ function SearchableSelect({ value, onChange, options, placeholder, width = 'w-36
     </div>
   );
 }
+
+const CHECKING_VERIFY_STATUS_OPTIONS: Opt[] = [
+  { label: 'Verified', value: 'verified' },
+  { label: 'Hold', value: 'hold' },
+  { label: 'Canceled', value: 'canceled' },
+];
 
 interface Props {
   search: string; onSearchChange: (v: string) => void;
@@ -149,7 +154,8 @@ interface Props {
   onExport: () => void; exporting?: boolean;
   onAddNew?: () => void;
   theme?: 'blue' | 'green' | 'purple';
-  // Advanced filter drawer
+  checkingVerifyStatus?: string;
+  onCheckingVerifyStatusChange?: (v: string) => void;
   extraFilters?: Record<string, string>;
   onExtraFiltersChange?: (f: Record<string, string>) => void;
   advStorageKey?: string;
@@ -166,6 +172,8 @@ export default function FlsFilter({
   dateTo, onDateToChange,
   onExport, exporting = false,
   onAddNew,
+  checkingVerifyStatus,
+  onCheckingVerifyStatusChange,
   extraFilters = {},
   onExtraFiltersChange = () => { },
   advStorageKey = 'fls_adv_drawer',
@@ -181,7 +189,26 @@ export default function FlsFilter({
   const [avpAgentOptions, setAvpAgentOptions] = useState<Opt[]>([]);
   const [customerOptions, setCustomerOptions] = useState<Opt[]>([]);
 
-  const [pending, setPending] = useState({ search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo });
+  const [pending, setPending] = useState({
+    search, unitNo, flsAgent, mgrAgent, avpAgent, customerName,
+    dateFrom, dateTo, checkingVerifyStatus: checkingVerifyStatus ?? '',
+  });
+  const [hasAppliedFilters, setHasAppliedFilters] = useState(false);
+
+  const dateSelected = datePreset !== 'all';
+
+  const hasAnyFilterValue = !!(
+    pending.search ||
+    pending.unitNo ||
+    pending.flsAgent ||
+    pending.mgrAgent ||
+    pending.avpAgent ||
+    pending.customerName ||
+    pending.checkingVerifyStatus ||
+    pending.dateFrom ||
+    pending.dateTo ||
+    Object.keys(extraFilters).length > 0
+  );
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -234,14 +261,19 @@ export default function FlsFilter({
     onCustomerNameChange(pending.customerName);
     onDateFromChange(pending.dateFrom);
     onDateToChange(pending.dateTo);
+    onCheckingVerifyStatusChange?.(pending.checkingVerifyStatus);
+    setHasAppliedFilters(true);
   };
 
   const handleReset = () => {
-    setPending({ search: '', unitNo: '', flsAgent: '', mgrAgent: '', avpAgent: '', customerName: '', dateFrom: '', dateTo: '' });
+    setPending({ search: '', unitNo: '', flsAgent: '', mgrAgent: '', avpAgent: '', customerName: '', dateFrom: '', dateTo: '', checkingVerifyStatus: '' });
     setDatePreset('all');
     onSearchChange(''); onUnitNoChange(''); onFlsAgentChange('');
     onMgrAgentChange(''); onAvpAgentChange('');
     onCustomerNameChange(''); onDateFromChange(''); onDateToChange('');
+    onCheckingVerifyStatusChange?.('');
+    onExtraFiltersChange({});
+    setHasAppliedFilters(false);
   };
 
   const dateBtnCls = isDark
@@ -255,10 +287,11 @@ export default function FlsFilter({
     : 'bg-white border-brand-200 text-brand-800 placeholder-brand-300 focus:ring-brand-500 focus:border-brand-500';
 
   return (
-    <div className="bg-white rounded-xl border border-brand-100 shadow-sm p-4 mb-4">
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex flex-wrap gap-2 items-center flex-1">
+    <div className="bg-white rounded-xl border border-brand-100 shadow-sm p-4 mb-4 space-y-2">
 
+      {/* ── Row 1: Search + primary selects (left) | Advanced, Export, Add Booking (right) ── */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2 items-center flex-1 min-w-0">
           {/* Search */}
           <div className="relative">
             <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${isDark ? 'text-[#4d6d8a]' : 'text-brand-400'}`} />
@@ -278,13 +311,77 @@ export default function FlsFilter({
             options={mgrAgentOptions} placeholder="Manager ID - Name" width="w-48" />
           <SearchableSelect isDark={isDark} value={pending.avpAgent} onChange={v => setPending(p => ({ ...p, avpAgent: v }))}
             options={avpAgentOptions} placeholder="AVP ID - Name" width="w-48" />
+        </div>
+
+        {/* Right: Advanced, Export, Add Booking */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Advanced Filter */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className={`relative flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors shadow-sm
+            ${Object.keys(extraFilters).length > 0
+                ? (isDark ? 'bg-brand-900 border-brand-600 text-brand-200' : 'bg-brand-50 border-brand-400 text-brand-700')
+                : (isDark ? 'bg-white/5 border-brand-700 text-brand-300 hover:bg-white/10' : 'bg-white border-brand-200 text-brand-700 hover:bg-brand-50')}`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Advanced</span>
+            {Object.keys(extraFilters).length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {Object.keys(extraFilters).length > 9 ? '9+' : Object.keys(extraFilters).length}
+              </span>
+            )}
+          </button>
+
+          {/* Export */}
+          <button
+            onClick={onExport}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-brand-200 rounded-lg text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-40 transition-colors shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? 'Exporting...' : 'Export'}
+          </button>
+
+          {/* Add Booking — booking page only */}
+          {onAddNew && (
+            <button
+              onClick={onAddNew}
+              className="flex items-center gap-2 bg-brand-800 hover:bg-brand-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Booking
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 2: Secondary selects + date (left) | Apply, Reset (right) ── */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2 items-center flex-1 min-w-0">
           <SearchableSelect isDark={isDark} value={pending.customerName} onChange={v => setPending(p => ({ ...p, customerName: v }))}
             options={customerOptions} placeholder="Customer Name" width="w-48" />
 
-          {/* Date preset */}
+          {/* Checking Verify Status — only shown when prop is provided */}
+          {onCheckingVerifyStatusChange !== undefined && (
+            <SearchableSelect
+              isDark={isDark}
+              value={pending.checkingVerifyStatus}
+              onChange={v => setPending(p => ({ ...p, checkingVerifyStatus: v }))}
+              options={CHECKING_VERIFY_STATUS_OPTIONS}
+              placeholder="Verify Status"
+              width="w-36"
+            />
+          )}
+
+          {/* Date preset dropdown */}
           <div className="relative" ref={dateRef}>
-            <button type="button" onClick={() => setDateOpen(v => !v)}
-              className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm focus:outline-none whitespace-nowrap shadow-sm transition-colors ${dateBtnCls}`}>
+            <button
+              type="button"
+              onClick={() => setDateOpen(v => !v)}
+              className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm focus:outline-none whitespace-nowrap shadow-sm transition-colors ${dateSelected
+                ? (isDark ? 'bg-brand-900 border-brand-600 text-brand-200 font-medium' : 'bg-brand-50 border-brand-400 text-brand-700 font-medium')
+                : dateBtnCls
+                }`}
+            >
               <span className="shrink-0">📅</span>
               <span>{DATE_PRESETS.find(p => p.key === datePreset)?.label ?? 'All Time'}</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dateOpen ? 'rotate-180' : ''} ${isDark ? 'text-[#4d6d8a]' : 'text-brand-400'}`} />
@@ -293,8 +390,7 @@ export default function FlsFilter({
               <div className={`absolute top-full left-0 mt-1 z-50 border rounded-xl shadow-lg w-44 ${dateDropCls}`}>
                 {DATE_PRESETS.map(p => (
                   <button key={p.key} type="button" onClick={() => handlePresetChange(p.key)}
-                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between first:rounded-t-xl last:rounded-b-xl transition-colors ${datePreset === p.key ? dateItemActive : dateItemBase
-                      }`}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between first:rounded-t-xl last:rounded-b-xl transition-colors ${datePreset === p.key ? dateItemActive : dateItemBase}`}
                   >
                     {p.label}
                     {datePreset === p.key && <span className={`text-xs ${isDark ? 'text-[#60a5fa]' : 'text-brand-600'}`}>✓</span>}
@@ -304,7 +400,7 @@ export default function FlsFilter({
             )}
           </div>
 
-          {/* Date range pickers */}
+          {/* Date range pickers (only when date_range preset chosen) */}
           {datePreset === 'date_range' && (
             <div className="flex items-center gap-1.5">
               <div className="w-36">
@@ -322,46 +418,28 @@ export default function FlsFilter({
           )}
         </div>
 
-        {/* Right: Apply + Export + Add New */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Advanced Filter button */}
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className={`relative flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors shadow-sm
-              ${Object.keys(extraFilters).length > 0
-                ? (isDark ? 'bg-brand-900 border-brand-600 text-brand-200' : 'bg-brand-50 border-brand-400 text-brand-700')
-                : (isDark ? 'bg-white/5 border-brand-700 text-brand-300 hover:bg-white/10' : 'bg-white border-brand-200 text-brand-700 hover:bg-brand-50')}`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Advanced</span>
-            {Object.keys(extraFilters).length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {Object.keys(extraFilters).length > 9 ? '9+' : Object.keys(extraFilters).length}
-              </span>
+        {/* Right: Apply (when pending values exist) | Reset (only after filters applied) */}
+        {(hasAnyFilterValue || hasAppliedFilters || Object.keys(extraFilters).length > 0) && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {hasAnyFilterValue && (
+              <button
+                onClick={handleApply}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+              >
+                <Filter className="w-3.5 h-3.5" /> Apply
+              </button>
             )}
-          </button>
-
-          <button onClick={handleApply}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
-            <Filter className="w-3.5 h-3.5" /> Apply
-          </button>
-          <button onClick={handleReset}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-brand-200 rounded-lg text-sm text-brand-700 hover:bg-brand-50 transition-colors shadow-sm"
-            title="Clear filters & refresh">
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
-          </button>
-          <button onClick={onExport} disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-brand-200 rounded-lg text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-40 transition-colors shadow-sm">
-            <Download className="w-3.5 h-3.5" />
-            {exporting ? 'Exporting...' : 'Export'}
-          </button>
-          {onAddNew && (
-            <button onClick={onAddNew}
-              className="flex items-center gap-2 bg-brand-800 hover:bg-brand-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Add Booking
-            </button>
-          )}
-        </div>
+            {(hasAppliedFilters || Object.keys(extraFilters).length > 0) && (
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-brand-200 rounded-lg text-sm text-brand-700 hover:bg-brand-50 transition-colors shadow-sm"
+                title="Clear filters & refresh"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Reset
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Advanced Filter Drawer */}

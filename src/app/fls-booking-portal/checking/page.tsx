@@ -28,19 +28,21 @@ export default function FlsCheckingListPage() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [extraFilters, setExtraFilters] = useState<Record<string, string>>({});
+  const [checkingVerifyStatus, setCheckingVerifyStatus] = useState('');
 
   const buildParams = useCallback((overridePage?: number) => {
     const params: any = {
       page: overridePage ?? page, limit: PAGE_SIZE,
-      search, unit_no: unitNo, fls_agent: flsAgent,
+      unit_no: unitNo, fls_agent: flsAgent,
       mgr_agent: mgrAgent, avp_agent: avpAgent,
       customer_name: customerName, date_field: 'createdAt',
       ...extraFilters,
     };
+    if (checkingVerifyStatus) params.checking_verify_status = checkingVerifyStatus;
     if (dateFrom) params.date_from = dateFrom;
     if (dateTo) params.date_to = dateTo;
     return params;
-  }, [page, search, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo, extraFilters]);
+  }, [page, unitNo, flsAgent, mgrAgent, avpAgent, customerName, dateFrom, dateTo, extraFilters, checkingVerifyStatus]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -122,6 +124,8 @@ export default function FlsCheckingListPage() {
         dateTo={dateTo} onDateToChange={v => { setDateTo(v); resetPage(); }}
         onExport={handleExport} exporting={exporting}
         theme="green"
+        checkingVerifyStatus={checkingVerifyStatus}
+        onCheckingVerifyStatusChange={v => { setCheckingVerifyStatus(v); resetPage(); }}
         extraFilters={extraFilters}
         onExtraFiltersChange={f => { setExtraFilters(f); resetPage(); }}
         advStorageKey="fls_checking_adv"
@@ -138,6 +142,7 @@ export default function FlsCheckingListPage() {
         deleting={deleting}
         onDelete={handleDelete}
         onPageChange={setPage}
+        globalSearch={search}
       />
     </FlsLayout>
   );

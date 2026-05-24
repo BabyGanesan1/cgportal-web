@@ -175,6 +175,7 @@ interface Props {
   deleting: number | null;
   onDelete: (row: any) => void;
   onPageChange: (p: number) => void;
+  globalSearch?: string;
 }
 
 const SPINNER_COLOR: Record<PageType, string> = {
@@ -192,10 +193,31 @@ const EDIT_HOVER: Record<PageType, string> = {
 const COL_SPAN = FLS_TABLE_COLUMNS.length + 5; // # + columns + 3 status + action
 
 export default function FlsTable({
-  type, data, loading, page, total, totalPages, isDark, deleting, onDelete, onPageChange,
+  type, data, loading, page, total, totalPages, isDark, deleting, onDelete, onPageChange, globalSearch,
 }: Props) {
   const router = useRouter();
   const stickyBg = isDark ? '#162c44' : '#ffffff';
+
+  const displayData = globalSearch?.trim()
+    ? data.filter(row => {
+        const q = globalSearch.toLowerCase();
+        // For verify status: null/empty is displayed as "Yet to Verify"
+        const verifyDisplay = row.checking_verify_status
+          ? String(row.checking_verify_status).toLowerCase()
+          : 'yet to verify';
+        const bookingStatus = row.booking_form_status
+          ? String(row.booking_form_status).toLowerCase()
+          : '';
+        return (
+          FLS_TABLE_COLUMNS.some(col => {
+            const v = row[col.key];
+            return v != null && String(v).toLowerCase().includes(q);
+          }) ||
+          verifyDisplay.includes(q) ||
+          bookingStatus.includes(q)
+        );
+      })
+    : data;
 
   return (
     <div className="bg-white rounded-xl border border-brand-100 shadow-sm overflow-hidden">
@@ -232,12 +254,12 @@ export default function FlsTable({
                   <span className="text-sm">Loading records...</span>
                 </div>
               </td></tr>
-            ) : data.length === 0 ? (
+            ) : displayData.length === 0 ? (
               <tr><td colSpan={COL_SPAN} className="py-20 text-center">
                 <p className="text-gray-400 text-sm">No records found</p>
                 <p className="text-gray-300 text-xs mt-1">Try adjusting your filters</p>
               </td></tr>
-            ) : data.map((row, idx) => (
+            ) : displayData.map((row, idx) => (
               <tr key={row.id} className="hover:bg-brand-50 transition-colors group">
                 <td className="px-3 py-3 text-brand-400 tabular-nums text-xs font-mono">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                 {FLS_TABLE_COLUMNS.map(col => (

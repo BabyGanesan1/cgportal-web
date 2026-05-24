@@ -119,6 +119,7 @@ interface Props {
   saving: boolean;
   onCancel: () => void;
 }
+const FORM_TYPE_OPTIONS = [{ value: 'hard copy', label: 'Hard Copy' }];
 
 export default function CheckingForm({ initialValues, onSubmit, saving, onCancel }: Props) {
   const { isDark } = useFlsTheme();
@@ -134,6 +135,8 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; path: string; size: number }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Stores remarks typed for each verify status so switching back restores them
+  const remarksPerStatusRef = useRef<Record<string, string>>({});
 
   // ── Dropdown option state (dynamic search — options load on typing) ────────
   const [projectOptions, setProjectOptions] = useState<{ value: string; label: string }[]>([]);
@@ -262,6 +265,12 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
   useEffect(() => {
     if (initialValues) {
       reset(initialValues);
+      // Seed the per-status remarks map with the loaded record's status/remarks
+      remarksPerStatusRef.current = {};
+      const initStatus = initialValues.checking_verify_status || '';
+      if (initStatus) {
+        remarksPerStatusRef.current[initStatus] = initialValues.remarks || '';
+      }
       if (initialValues.attachments) {
         try { setAttachedFiles(JSON.parse(initialValues.attachments)); } catch { }
       }
@@ -295,19 +304,31 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
     if (!msp) return;
     let mspAmount = 0;
     let takenAmount = 0;
+    let mspReady = false;
+    let takenReady = false;
     if (msp === 'villa') {
-      mspAmount = (parseFloat(mspLandCost) || 0) + (parseFloat(mspConstructionCost) || 0);
-      takenAmount = (parseFloat(takenLandCost) || 0) + (parseFloat(takenConstructionCost) || 0);
+      const lc = parseFloat(mspLandCost);
+      const cc = parseFloat(mspConstructionCost);
+      const tlc = parseFloat(takenLandCost);
+      const tcc = parseFloat(takenConstructionCost);
+      if (!isNaN(lc) && !isNaN(cc)) { mspAmount = lc + cc; mspReady = true; }
+      if (!isNaN(tlc) && !isNaN(tcc)) { takenAmount = tlc + tcc; takenReady = true; }
     } else if (msp === 'apartment') {
-      mspAmount = parseFloat(mspApartmentCost) || 0;
-      takenAmount = parseFloat(takenApartmentCost) || 0;
+      const ac = parseFloat(mspApartmentCost);
+      const tac = parseFloat(takenApartmentCost);
+      if (!isNaN(ac)) { mspAmount = ac; mspReady = true; }
+      if (!isNaN(tac)) { takenAmount = tac; takenReady = true; }
     } else if (msp === 'others') {
-      mspAmount = parseFloat(mspCustomAmount) || 0;
+      const ca = parseFloat(mspCustomAmount);
+      if (!isNaN(ca)) { mspAmount = ca; mspReady = true; }
     }
-    setValue('msp_amount', mspAmount.toFixed(2), { shouldDirty: true });
-    setValue('taken_price', takenAmount.toFixed(2), { shouldDirty: true });
-    if (mspAmount !== 0 || takenAmount !== 0) {
-      setValue('discount', (mspAmount - takenAmount).toFixed(2), { shouldDirty: true });
+    setValue('msp_amount', mspReady ? mspAmount.toFixed(2) : '', { shouldDirty: true });
+    setValue('taken_price', takenReady ? takenAmount.toFixed(2) : '', { shouldDirty: true });
+    if (mspReady && takenReady) {
+      const disc = Math.max(0, mspAmount - takenAmount);
+      setValue('discount', disc.toFixed(2), { shouldDirty: true });
+    } else {
+      setValue('discount', '', { shouldDirty: true });
     }
   }, [msp, mspLandCost, mspConstructionCost, takenLandCost, takenConstructionCost, mspApartmentCost, takenApartmentCost, mspCustomAmount]);
 
@@ -334,9 +355,36 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
   };
 
   const submit = async (data: any) => {
+    // Validate: remarks required when verify status is hold or canceled
+    const newStatus = data.checking_verify_status;
+    const prevStatus = initialValues?.checking_verify_status ?? '';
+    const statusChanged = newStatus !== prevStatus;
+    const remarksValue = (data.remarks || '').trim();
+
+    if (statusChanged && (newStatus === 'hold' || newStatus === 'canceled')) {
+      if (!remarksValue) {
+        toast.error(
+          newStatus === 'hold'
+            ? 'Remarks are required when setting status to Hold. Please enter the hold reason.'
+            : 'Remarks are required when canceling. Please enter the cancellation reason.'
+        );
+        // Focus remarks field
+        const el = document.querySelector('textarea[name="remarks"]') as HTMLTextAreaElement | null;
+        el?.focus();
+        return;
+      }
+    }
+
     const clean: any = { _module: 'CHECKING' };
     ALL_CHECKING_FIELDS.forEach(k => { clean[k] = data[k] === '' ? null : (data[k] ?? null); });
     clean.attachments = attachedFiles.length ? JSON.stringify(attachedFiles) : null;
+
+    // Attach previous verify status so backend can log status-change with remarks
+    if (statusChanged && newStatus) {
+      clean._prev_checking_verify_status = prevStatus || null;
+      clean._verify_status_remarks = remarksValue || null;
+    }
+
     await onSubmit(clean);
   };
 
@@ -455,8 +503,18 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
               placeholder="Select Status"
             />
           </div>
-          {inp('form_type', 'Form Type')}
-
+          {/* {inp('form_type', 'Form Type')} */}
+          <div>
+            <label className={cls.LABEL}>
+              Form Type<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <CommonSelect
+              options={FORM_TYPE_OPTIONS}
+              value={watch('form_type') || ''}
+              onChange={v => setValue('form_type', v, { shouldDirty: true })}
+              placeholder="Select Form Type"
+            />
+          </div>
           {/* MSP — CommonSelect */}
           <div>
             <label className={cls.LABEL}>Category</label>
@@ -477,7 +535,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
                   {inp('msp_land_cost', 'Land Cost')}
                   {inp('msp_construction_cost', 'Construction Cost')}
                   <div>
-                    <label className={cls.LABEL}>MSP Amount (auto)</label>
+                    <label className={cls.LABEL}>MSP Amount</label>
                     <input {...register('msp_amount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
                   </div>
                 </div>
@@ -488,7 +546,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
                   {inp('taken_land_cost', 'Land Cost')}
                   {inp('taken_construction_cost', 'Construction Cost')}
                   <div>
-                    <label className={cls.LABEL}>Taken Amount (auto)</label>
+                    <label className={cls.LABEL}>Taken Amount </label>
                     <input {...register('taken_price')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
                   </div>
                 </div>
@@ -496,39 +554,39 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
             </>
           )}
 
-          {/* Apartment: MSP = Construction Cost, Taken = Construction Cost */}
+          {/* Apartment: MSP Amount | Taken Amount | Discount — all in one row, no Land/Construction Cost */}
           {msp === 'apartment' && (
-            <>
-              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
-                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${cls.SEC_TITLE}`}>MSP</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
-                  {inp('msp_apartment_cost', 'Construction Cost')}
-                  <div>
-                    <label className={cls.LABEL}>MSP Amount (auto)</label>
-                    <input {...register('msp_amount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
-                  </div>
+            <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
+                <div>
+                  <label className={cls.LABEL}>MSP Amount</label>
+                  <input {...register('msp_apartment_cost')} type="text" className={cls.INPUT}
+                    placeholder="MSP Amount" />
                 </div>
-              </div>
-              <div className="col-span-1 md:col-span-2 lg:col-span-4 pt-3 mt-1 border-t border-dashed" style={{ borderColor: 'inherit' }}>
-                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${cls.SEC_TITLE}`}>Taken</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
-                  {inp('taken_apartment_cost', 'Construction Cost')}
-                  <div>
-                    <label className={cls.LABEL}>Taken Amount (auto)</label>
-                    <input {...register('taken_price')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
-                  </div>
+                <div>
+                  <label className={cls.LABEL}>Taken Amount</label>
+                  <input {...register('taken_apartment_cost')} type="text" className={cls.INPUT}
+                    placeholder="Taken Amount" />
                 </div>
+                {(watch('msp_apartment_cost') && watch('taken_apartment_cost')) ? (
+                  <div>
+                    <label className={cls.LABEL}>Discount</label>
+                    <input {...register('discount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+                  </div>
+                ) : null}
               </div>
-            </>
+            </div>
           )}
 
           {msp === 'others' && inp('msp_custom_amount', 'MSP Custom Amount')}
 
-          {/* Discount — auto calculated */}
-          <div>
-            <label className={cls.LABEL}>Discount (auto)</label>
-            <input {...register('discount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
-          </div>
+          {/* Discount for Villa — only shown when both msp_amount and taken_price are calculated */}
+          {msp === 'villa' && watch('msp_amount') && watch('taken_price') ? (
+            <div>
+              <label className={cls.LABEL}>Discount </label>
+              <input {...register('discount')} type="text" readOnly className={cls.DISABLED} placeholder="Auto calculated" />
+            </div>
+          ) : null}
 
           {inp('offer', 'Offer')}
           {area('offer_description', 'Offer Description', HALF)}
@@ -559,7 +617,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
               placeholder="Select Type"
             />
           </div> */}
-          {inp('source_customer_name', 'Customer Name (Source)', HALF)}
+          {inp('source_customer_name', 'Customer Name', HALF)}
 
           {sec('SF Lead 1')}
           {inp('sf_lead_id1', 'SF Lead ID 1')}
@@ -604,7 +662,16 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
                   : o
               )}
               value={watch('checking_verify_status') || ''}
-              onChange={v => setValue('checking_verify_status', v, { shouldDirty: true })}
+              onChange={v => {
+                const prevStatus = watch('checking_verify_status') || '';
+                // Save current remarks under the status being left
+                if (prevStatus) {
+                  remarksPerStatusRef.current[prevStatus] = watch('remarks') || '';
+                }
+                setValue('checking_verify_status', v, { shouldDirty: true });
+                // Restore remarks for the new status, or clear if never set
+                setValue('remarks', remarksPerStatusRef.current[v] ?? '', { shouldDirty: true });
+              }}
               placeholder="Select Status"
             />
             {!canVerify && <p className="text-[10px] text-amber-600 mt-1">Source &amp; Sub Source required before verifying</p>}

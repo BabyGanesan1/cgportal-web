@@ -415,6 +415,7 @@ export default function AdvancedFilterDrawer({
   // Add-field panel
   const [addOpen, setAddOpen] = useState(false);
   const [addQuery, setAddQuery] = useState('');
+  const [checkedFieldKeys, setCheckedFieldKeys] = useState<Set<string>>(new Set());
   const addRef = useRef<HTMLDivElement>(null);
 
   // Section collapse
@@ -568,8 +569,8 @@ export default function AdvancedFilterDrawer({
   const handleChangeDateTo = (id: string, val: string) =>
     setRows(prev => prev.map(r => r.id === id ? { ...r, valueTo: val } : r));
 
-  // Fields available for add-panel (not already added, not excluded)
-  const usedKeys = new Set([...excludeKeys, ...rows.map(r => r.field.key)] as string[]);
+  // Fields available for add-panel (excluded keys only — already-added fields are shown checked)
+  const usedKeys = new Set(excludeKeys as string[]);
   const availableFields = FILTER_FIELDS.filter(f => !usedKeys.has(f.key));
   const filteredAvailable = addQuery
     ? availableFields.filter(f =>
@@ -643,14 +644,19 @@ export default function AdvancedFilterDrawer({
 
             <div className="relative" ref={addRef}>
               <button
-                onClick={() => { setAddOpen(v => !v); setAddQuery(''); }}
+                onClick={() => { setAddOpen(v => !v); setAddQuery(''); if (!addOpen) setCheckedFieldKeys(new Set(rows.map(r => r.field.key))); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'bg-[#1e3350] border-[#3d6b9e] text-[#60a5fa] hover:bg-[#243b53]' : 'bg-white border-brand-300 text-brand-700 hover:bg-brand-50'}`}
               >
                 <Plus className="w-3.5 h-3.5" /> Add Filter Field
+                {checkedFieldKeys.size > 0 && (
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isDark ? 'bg-[#60a5fa] text-[#0a1929]' : 'bg-brand-600 text-white'}`}>
+                    {checkedFieldKeys.size}
+                  </span>
+                )}
               </button>
 
               {addOpen && (
-                <div className={`absolute top-full right-0 mt-1 z-[600] w-72 border rounded-xl shadow-xl ${isDark ? 'bg-[#1e3350] border-[#2d4a68]' : 'bg-white border-gray-100'}`}>
+                <div className={`absolute top-full right-0 mt-1 z-[600] w-80 border rounded-xl shadow-xl ${isDark ? 'bg-[#1e3350] border-[#2d4a68]' : 'bg-white border-gray-100'}`}>
                   {/* Search */}
                   <div className={`p-2 border-b ${isDark ? 'border-[#2d4a68]' : 'border-gray-100'}`}>
                     <div className="relative">
@@ -665,40 +671,89 @@ export default function AdvancedFilterDrawer({
                     </div>
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto">
-                    {/* Select All */}
-                    {filteredAvailable.length > 0 && (
-                      <div className={`px-3 py-2 border-b sticky top-0 z-10 ${isDark ? 'border-[#2d4a68] bg-[#1e3350]' : 'border-gray-100 bg-white'}`}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            filteredAvailable.forEach(f => {
-                              if (!rows.some(r => r.field.key === f.key)) {
-                                setRows(prev => [...prev, { id: `${f.key}_${Date.now()}_${Math.random()}`, field: f, value: '', valueTo: '' }]);
-                              }
-                            });
-                            setAddOpen(false);
-                            setAddQuery('');
-                          }}
-                          className={`w-full text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors ${isDark ? 'bg-[#243b53] text-[#60a5fa] hover:bg-[#2d5070]' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'}`}
-                        >
-                          ＋ Select All ({filteredAvailable.length} fields)
-                        </button>
-                      </div>
-                    )}
+                  {/* Select All / Deselect All + count */}
+                  {filteredAvailable.length > 0 && (
+                    <div className={`px-3 py-2 border-b flex items-center gap-2 sticky top-0 z-10 ${isDark ? 'border-[#2d4a68] bg-[#1e3350]' : 'border-gray-100 bg-white'}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allKeys = new Set(filteredAvailable.map(f => f.key));
+                          setCheckedFieldKeys(allKeys);
+                        }}
+                        className={`text-xs px-2 py-1 rounded font-medium ${isDark ? 'text-[#60a5fa] hover:bg-[#243b53]' : 'text-brand-700 hover:bg-brand-50'}`}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCheckedFieldKeys(new Set())}
+                        className={`text-xs px-2 py-1 rounded font-medium ${isDark ? 'text-red-400 hover:bg-red-900/20' : 'text-red-500 hover:bg-red-50'}`}
+                      >
+                        Clear
+                      </button>
+                      <span className={`ml-auto text-xs py-1 ${isDark ? 'text-[#4d6d8a]' : 'text-gray-400'}`}>
+                        {checkedFieldKeys.size > 0 ? `${checkedFieldKeys.size} selected` : `${filteredAvailable.length} available`}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="max-h-72 overflow-y-auto">
                     {Object.entries(availableBySection).map(([section, fields]) => (
                       <div key={section}>
-                        <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest sticky top-0 ${isDark ? 'text-[#4d6d8a] bg-[#0a1929]' : 'text-gray-400 bg-gray-50'}`}>
-                          {section}
+                        {/* Section header with section-level check */}
+                        <div className={`px-3 py-1.5 flex items-center gap-2 sticky top-0 z-[5] ${isDark ? 'text-[#4d6d8a] bg-[#0a1929]' : 'text-gray-400 bg-gray-50'}`}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sectionKeys = fields.map(f => f.key);
+                              const allChecked = sectionKeys.every(k => checkedFieldKeys.has(k));
+                              setCheckedFieldKeys(prev => {
+                                const next = new Set(prev);
+                                if (allChecked) sectionKeys.forEach(k => next.delete(k));
+                                else sectionKeys.forEach(k => next.add(k));
+                                return next;
+                              });
+                            }}
+                            className="flex items-center gap-1.5"
+                          >
+                            <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-[9px] font-bold
+                              ${fields.every(f => checkedFieldKeys.has(f.key))
+                                ? (isDark ? 'bg-[#60a5fa] border-[#60a5fa] text-white' : 'bg-brand-600 border-brand-600 text-white')
+                                : fields.some(f => checkedFieldKeys.has(f.key))
+                                  ? (isDark ? 'bg-[#243b53] border-[#4d6d8a] text-[#60a5fa]' : 'bg-brand-100 border-brand-400 text-brand-700')
+                                  : (isDark ? 'border-[#4d6d8a]' : 'border-gray-300')}`}
+                            >
+                              {fields.every(f => checkedFieldKeys.has(f.key)) ? '✓' : fields.some(f => checkedFieldKeys.has(f.key)) ? '–' : ''}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{section}</span>
+                          </button>
                         </div>
                         {fields.map(f => (
                           <button
                             key={f.key}
                             type="button"
-                            onClick={() => addRow(f)}
-                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${isDark ? 'text-[#94a3b8] hover:bg-[#243b53] hover:text-[#e2e8f0]' : 'text-gray-700 hover:bg-brand-50 hover:text-brand-800'}`}
+                            onClick={() => {
+                              setCheckedFieldKeys(prev => {
+                                const next = new Set(prev);
+                                if (next.has(f.key)) next.delete(f.key);
+                                else next.add(f.key);
+                                return next;
+                              });
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2.5
+                              ${checkedFieldKeys.has(f.key)
+                                ? (isDark ? 'text-[#e2e8f0] font-medium bg-[#243b53]' : 'text-brand-800 font-medium bg-brand-50')
+                                : (isDark ? 'text-[#94a3b8] hover:bg-[#243b53] hover:text-[#e2e8f0]' : 'text-gray-700 hover:bg-brand-50 hover:text-brand-800')}`}
                           >
-                            <span>{f.label}</span>
+                            {/* Checkbox */}
+                            <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-[9px] font-bold
+                              ${checkedFieldKeys.has(f.key)
+                                ? (isDark ? 'bg-[#60a5fa] border-[#60a5fa] text-white' : 'bg-brand-600 border-brand-600 text-white')
+                                : (isDark ? 'border-[#4d6d8a]' : 'border-gray-300')}`}
+                            >
+                              {checkedFieldKeys.has(f.key) && '✓'}
+                            </span>
+                            <span className="flex-1">{f.label}</span>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? 'bg-[#0a1929] text-[#4d6d8a]' : 'bg-gray-100 text-gray-400'}`}>
                               {f.type}
                             </span>
@@ -711,6 +766,35 @@ export default function AdvancedFilterDrawer({
                         All fields added or no match
                       </div>
                     )}
+                  </div>
+
+                  {/* Footer: Apply Selection button */}
+                  <div className={`px-3 py-2.5 border-t ${isDark ? 'border-[#2d4a68] bg-[#0a1929]' : 'border-gray-100 bg-gray-50'}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const existingKeys = new Set(rows.map(r => r.field.key));
+                        setRows(prev => {
+                          const kept = prev.filter(r => checkedFieldKeys.has(r.field.key));
+                          const newRows: FilterRow[] = [];
+                          checkedFieldKeys.forEach(key => {
+                            if (!existingKeys.has(key)) {
+                              const field = FILTER_FIELDS.find(f => f.key === key);
+                              if (field) {
+                                newRows.push({ id: `${key}_${Date.now()}_${Math.random()}`, field, value: '', valueTo: '' });
+                              }
+                            }
+                          });
+                          return [...kept, ...newRows];
+                        });
+                        setCheckedFieldKeys(new Set());
+                        setAddOpen(false);
+                        setAddQuery('');
+                      }}
+                      className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-[#60a5fa] text-[#0a1929] hover:bg-[#93c5fd]' : 'bg-brand-700 text-white hover:bg-brand-800'}`}
+                    >
+                      Apply Selection
+                    </button>
                   </div>
                 </div>
               )}
