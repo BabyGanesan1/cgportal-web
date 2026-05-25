@@ -354,77 +354,76 @@ export default function FlsFilter({
         </div>
       </div>
 
-      {/* ── Row 2: Secondary selects + date (left) | Apply, Reset (right) ── */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2 items-center flex-1 min-w-0">
-          <SearchableSelect isDark={isDark} value={pending.customerName} onChange={v => setPending(p => ({ ...p, customerName: v }))}
-            options={customerOptions} placeholder="Customer Name" width="w-48" />
+      {/* ── Row 2: Apply/Reset (left) | Secondary selects + date (right) ── */}
+      <div className="flex items-center gap-2 flex-wrap">
 
-          {/* Checking Verify Status — only shown when prop is provided */}
-          {onCheckingVerifyStatusChange !== undefined && (
-            <SearchableSelect
-              isDark={isDark}
-              value={pending.checkingVerifyStatus}
-              onChange={v => setPending(p => ({ ...p, checkingVerifyStatus: v }))}
-              options={CHECKING_VERIFY_STATUS_OPTIONS}
-              placeholder="Verify Status"
-              width="w-36"
-            />
-          )}
+        {/* Left: Apply, Reset buttons */}
 
-          {/* Date preset dropdown */}
-          <div className="relative" ref={dateRef}>
-            <button
-              type="button"
-              onClick={() => setDateOpen(v => !v)}
-              className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm focus:outline-none whitespace-nowrap shadow-sm transition-colors ${dateSelected
-                ? (isDark ? 'bg-brand-900 border-brand-600 text-brand-200 font-medium' : 'bg-brand-50 border-brand-400 text-brand-700 font-medium')
-                : dateBtnCls
-                }`}
-            >
-              <span className="shrink-0">📅</span>
-              <span>{DATE_PRESETS.find(p => p.key === datePreset)?.label ?? 'All Time'}</span>
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dateOpen ? 'rotate-180' : ''} ${isDark ? 'text-[#4d6d8a]' : 'text-brand-400'}`} />
-            </button>
-            {dateOpen && (
-              <div className={`absolute top-full left-0 mt-1 z-50 border rounded-xl shadow-lg w-44 ${dateDropCls}`}>
-                {DATE_PRESETS.map(p => (
-                  <button key={p.key} type="button" onClick={() => handlePresetChange(p.key)}
-                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between first:rounded-t-xl last:rounded-b-xl transition-colors ${datePreset === p.key ? dateItemActive : dateItemBase}`}
-                  >
-                    {p.label}
-                    {datePreset === p.key && <span className={`text-xs ${isDark ? 'text-[#60a5fa]' : 'text-brand-600'}`}>✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        <SearchableSelect isDark={isDark} value={pending.customerName} onChange={v => setPending(p => ({ ...p, customerName: v }))}
+          options={customerOptions} placeholder="Customer Name" width="w-48" />
 
-          {/* Date range pickers (only when date_range preset chosen) */}
-          {datePreset === 'date_range' && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-36">
-                <DarkDatePicker value={pending.dateFrom} onChange={v => setPending(p => ({ ...p, dateFrom: v }))} placeholder="From date" compact />
-              </div>
-              <span className={`text-sm ${isDark ? 'text-[#4d6d8a]' : 'text-brand-300'}`}>→</span>
-              <div className="w-36">
-                <DarkDatePicker value={pending.dateTo} onChange={v => setPending(p => ({ ...p, dateTo: v }))} placeholder="To date" compact />
-              </div>
-              <button type="button" onClick={() => handlePresetChange('all')}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 transition-colors shrink-0" title="Clear">
-                <X className="w-3.5 h-3.5" />
-              </button>
+        {/* Checking Verify Status — only shown when prop is provided */}
+        {onCheckingVerifyStatusChange !== undefined && (
+          <SearchableSelect
+            isDark={isDark}
+            value={pending.checkingVerifyStatus}
+            onChange={v => setPending(p => ({ ...p, checkingVerifyStatus: v }))}
+            options={CHECKING_VERIFY_STATUS_OPTIONS}
+            placeholder="Verify Status"
+            width="w-36"
+          />
+        )}
+
+        {/* Date preset dropdown */}
+        <div className="relative" ref={dateRef}>
+          <button
+            type="button"
+            onClick={() => setDateOpen(v => !v)}
+            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm focus:outline-none whitespace-nowrap shadow-sm transition-colors ${dateSelected
+              ? (isDark ? 'bg-brand-900 border-brand-600 text-brand-200 font-medium' : 'bg-brand-50 border-brand-400 text-brand-700 font-medium')
+              : dateBtnCls
+              }`}
+          >
+            <span className="shrink-0">📅</span>
+            <span>{DATE_PRESETS.find(p => p.key === datePreset)?.label ?? 'All Time'}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dateOpen ? 'rotate-180' : ''} ${isDark ? 'text-[#4d6d8a]' : 'text-brand-400'}`} />
+          </button>
+          {dateOpen && (
+            <div className={`absolute top-full left-0 mt-1 z-50 border rounded-xl shadow-lg w-44 ${dateDropCls}`}>
+              {DATE_PRESETS.map(p => (
+                <button key={p.key} type="button" onClick={() => handlePresetChange(p.key)}
+                  className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between first:rounded-t-xl last:rounded-b-xl transition-colors ${datePreset === p.key ? dateItemActive : dateItemBase}`}
+                >
+                  {p.label}
+                  {datePreset === p.key && <span className={`text-xs ${isDark ? 'text-[#60a5fa]' : 'text-brand-600'}`}>✓</span>}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Right: Apply (when pending values exist) | Reset (only after filters applied) */}
+        {/* Date range pickers (only when date_range preset chosen) */}
+        {datePreset === 'date_range' && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-36">
+              <DarkDatePicker value={pending.dateFrom} onChange={v => setPending(p => ({ ...p, dateFrom: v }))} placeholder="From date" compact />
+            </div>
+            <span className={`text-sm ${isDark ? 'text-[#4d6d8a]' : 'text-brand-300'}`}>→</span>
+            <div className="w-36">
+              <DarkDatePicker value={pending.dateTo} onChange={v => setPending(p => ({ ...p, dateTo: v }))} placeholder="To date" compact />
+            </div>
+            <button type="button" onClick={() => handlePresetChange('all')}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 transition-colors shrink-0" title="Clear">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
         {(hasAnyFilterValue || hasAppliedFilters || Object.keys(extraFilters).length > 0) && (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <>
             {hasAnyFilterValue && (
               <button
                 onClick={handleApply}
-                className="flex items-center gap-2 px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex-shrink-0"
               >
                 <Filter className="w-3.5 h-3.5" /> Apply
               </button>
@@ -432,13 +431,13 @@ export default function FlsFilter({
             {(hasAppliedFilters || Object.keys(extraFilters).length > 0) && (
               <button
                 onClick={handleReset}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-brand-200 rounded-lg text-sm text-brand-700 hover:bg-brand-50 transition-colors shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-brand-200 rounded-lg text-sm text-brand-700 hover:bg-brand-50 transition-colors shadow-sm flex-shrink-0"
                 title="Clear filters & refresh"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Reset
               </button>
             )}
-          </div>
+          </>
         )}
       </div>
 

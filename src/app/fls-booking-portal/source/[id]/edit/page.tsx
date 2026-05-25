@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import FlsLayout from '../../../_components/FlsLayout';
 import SourceForm from '../../../_components/SourceForm';
+import FlsEditLockBanner from '../../../_components/FlsEditLockBanner';
+import { useFlsEditLock } from '../../../_components/useFlsEditLock';
 import api from '../../../../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -28,6 +30,7 @@ export default function SourceEditPage() {
   const [initialValues, setInitialValues] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { editors } = useFlsEditLock('source', id);
 
   useEffect(() => {
     api.get(`/fls-booking/${id}`)
@@ -72,12 +75,15 @@ export default function SourceEditPage() {
           </div>
         </div>
       ) : (
-        <SourceForm
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-          saving={saving}
-          onCancel={() => router.push('/fls-booking-portal/source')}
-        />
+        <>
+          <FlsEditLockBanner editors={editors} />
+          <SourceForm
+            initialValues={initialValues}
+            onSubmit={handleSubmit}
+            saving={saving}
+            onCancel={() => router.push('/fls-booking-portal/source')}
+          />
+        </>
       )}
     </FlsLayout>
   );

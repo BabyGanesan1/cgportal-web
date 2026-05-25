@@ -146,11 +146,11 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
       const ca = parseFloat(mspCustomAmount);
       if (!isNaN(ca)) { mspAmount = ca; mspReady = true; }
     }
-    setValue('msp_amount', mspReady ? mspAmount.toFixed(2) : '', { shouldDirty: true });
-    setValue('taken_price', takenReady ? takenAmount.toFixed(2) : '', { shouldDirty: true });
+    setValue('msp_amount', mspReady ? String(parseFloat(mspAmount.toFixed(10))) : '', { shouldDirty: true });
+    setValue('taken_price', takenReady ? String(parseFloat(takenAmount.toFixed(10))) : '', { shouldDirty: true });
     if (mspReady && takenReady) {
-      const disc = Math.max(0, mspAmount - takenAmount);
-      setValue('discount', disc.toFixed(2), { shouldDirty: true });
+      const disc = Math.abs(mspAmount - takenAmount);
+      setValue('discount', String(parseFloat(disc.toFixed(10))), { shouldDirty: true });
     } else {
       setValue('discount', '', { shouldDirty: true });
     }
@@ -265,7 +265,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
             placeholder="Select Type"
             disabled={checkingVerified}
           />
-          {txt('source_customer_name', 'Customer Name', HALF)}
+          {/* {txt('source_customer_name', 'Customer Name', HALF)} */}
 
           {sec('SF Lead 1')}
           {txt('sf_lead_id1', 'SF Lead ID 1')}
@@ -345,7 +345,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
             <label className={cls.LABEL}>Category</label>
             <CommonSelect
               options={MSP_OPTIONS}
-              value={watch('msp') || ''}
+              value={MSP_OPTIONS.some(o => o.value === watch('msp')) ? watch('msp') : ''}
               onChange={v => setValue('msp', v, { shouldDirty: true })}
               placeholder="Select Category"
               disabled={checkingVerified}

@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import FlsLayout from '../../../_components/FlsLayout';
 import BookingForm from '../../../_components/BookingForm';
+import FlsEditLockBanner from '../../../_components/FlsEditLockBanner';
+import { useFlsEditLock } from '../../../_components/useFlsEditLock';
 import api from '../../../../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -26,6 +28,7 @@ export default function BookingEditPage() {
   const [initialValues, setInitialValues] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { editors } = useFlsEditLock('booking', id);
 
   useEffect(() => {
     api.get(`/fls-booking/${id}`)
@@ -70,12 +73,15 @@ export default function BookingEditPage() {
           </div>
         </div>
       ) : (
-        <BookingForm
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-          saving={saving}
-          onCancel={() => router.push('/fls-booking-portal/booking')}
-        />
+        <>
+          <FlsEditLockBanner editors={editors} />
+          <BookingForm
+            initialValues={initialValues}
+            onSubmit={handleSubmit}
+            saving={saving}
+            onCancel={() => router.push('/fls-booking-portal/booking')}
+          />
+        </>
       )}
     </FlsLayout>
   );

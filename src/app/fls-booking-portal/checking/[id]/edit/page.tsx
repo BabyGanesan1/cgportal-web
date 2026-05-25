@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import FlsLayout from '../../../_components/FlsLayout';
 import CheckingForm from '../../../_components/CheckingForm';
+import FlsEditLockBanner from '../../../_components/FlsEditLockBanner';
+import { useFlsEditLock } from '../../../_components/useFlsEditLock';
 import api from '../../../../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -31,6 +33,7 @@ export default function CheckingEditPage() {
   const [initialValues, setInitialValues] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { editors } = useFlsEditLock('checking', id);
 
   useEffect(() => {
     api.get(`/fls-booking/${id}`)
@@ -75,12 +78,15 @@ export default function CheckingEditPage() {
           </div>
         </div>
       ) : (
-        <CheckingForm
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-          saving={saving}
-          onCancel={() => router.push('/fls-booking-portal/checking')}
-        />
+        <>
+          <FlsEditLockBanner editors={editors} />
+          <CheckingForm
+            initialValues={initialValues}
+            onSubmit={handleSubmit}
+            saving={saving}
+            onCancel={() => router.push('/fls-booking-portal/checking')}
+          />
+        </>
       )}
     </FlsLayout>
   );

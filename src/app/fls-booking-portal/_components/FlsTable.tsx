@@ -74,7 +74,7 @@ export const FLS_TABLE_COLUMNS: TableCol[] = [
   { key: 'iden_date', label: 'Iden Date', minW: 100, isDate: true },
   { key: 'source_remarks', label: 'Source Remarks', minW: 160 },
   { key: 'customer_type', label: 'Customer Type', minW: 120 },
-  { key: 'source_customer_name', label: 'Customer Name (Source)', minW: 180 },
+  { key: 'name', label: 'Customer Name', minW: 180 },
   { key: 'sf_lead_id1', label: 'SF Lead id1', minW: 110 },
   { key: 'sf_lead2', label: 'SF Lead2', minW: 100 },
   { key: 'sf_lead3', label: 'SF Lead3', minW: 100 },
@@ -100,10 +100,15 @@ export const FLS_TABLE_COLUMNS: TableCol[] = [
   { key: 'walk_in_date', label: 'Walk In Date', minW: 110, isDate: true },
   { key: 'login_before_cancel_remarks', label: 'Login before Cancel to Relogin remarks', minW: 220 },
   { key: 'msp', label: 'MSP', minW: 80 },
-  { key: 'taken_price', label: 'Taken Price', minW: 100 },
-  { key: 'discount', label: 'Discount', minW: 90 },
-  { key: 'land_cost', label: 'Land Cost', minW: 110 },
-  { key: 'construction_cost', label: 'Construction Cost', minW: 150 },
+  { key: 'msp_amount', label: 'MSP Amount', minW: 120 },
+  { key: 'taken_price', label: 'Taken Price', minW: 110 },
+  { key: 'discount', label: 'Discount', minW: 100 },
+  { key: 'msp_land_cost', label: 'MSP Land Cost', minW: 130 },
+  { key: 'msp_construction_cost', label: 'MSP Construction Cost', minW: 180 },
+  { key: 'taken_land_cost', label: 'Taken Land Cost', minW: 130 },
+  { key: 'taken_construction_cost', label: 'Taken Construction Cost', minW: 190 },
+  { key: 'msp_apartment_cost', label: 'MSP Apartment Cost', minW: 160 },
+  { key: 'taken_apartment_cost', label: 'Taken Apartment Cost', minW: 170 },
   { key: 'msp_custom_amount', label: 'MSP Custom Amount', minW: 160 },
   { key: 'offer', label: 'Offer', minW: 110 },
   { key: 'offer_description', label: 'Offer Description', minW: 160 },
@@ -200,23 +205,23 @@ export default function FlsTable({
 
   const displayData = globalSearch?.trim()
     ? data.filter(row => {
-        const q = globalSearch.toLowerCase();
-        // For verify status: null/empty is displayed as "Yet to Verify"
-        const verifyDisplay = row.checking_verify_status
-          ? String(row.checking_verify_status).toLowerCase()
-          : 'yet to verify';
-        const bookingStatus = row.booking_form_status
-          ? String(row.booking_form_status).toLowerCase()
-          : '';
-        return (
-          FLS_TABLE_COLUMNS.some(col => {
-            const v = row[col.key];
-            return v != null && String(v).toLowerCase().includes(q);
-          }) ||
-          verifyDisplay.includes(q) ||
-          bookingStatus.includes(q)
-        );
-      })
+      const q = globalSearch.toLowerCase();
+      // For verify status: null/empty is displayed as "Yet to Verify"
+      const verifyDisplay = row.checking_verify_status
+        ? String(row.checking_verify_status).toLowerCase()
+        : 'yet to verify';
+      const bookingStatus = row.booking_form_status
+        ? String(row.booking_form_status).toLowerCase()
+        : '';
+      return (
+        FLS_TABLE_COLUMNS.some(col => {
+          const v = row[col.key];
+          return v != null && String(v).toLowerCase().includes(q);
+        }) ||
+        verifyDisplay.includes(q) ||
+        bookingStatus.includes(q)
+      );
+    })
     : data;
 
   return (
@@ -232,9 +237,9 @@ export default function FlsTable({
                   {col.label}
                 </th>
               ))}
-              <th className="text-left px-3 py-3 text-[10px] font-bold text-brand-200 uppercase tracking-widest whitespace-nowrap" style={{ minWidth: 140 }}>
+              {/* <th className="text-left px-3 py-3 text-[10px] font-bold text-brand-200 uppercase tracking-widest whitespace-nowrap" style={{ minWidth: 140 }}>
                 Booking Status
-              </th>
+              </th> */}
               <th className="fls-sticky bg-brand-800 text-left px-3 py-3 text-[10px] font-bold text-brand-200 uppercase tracking-widest whitespace-nowrap"
                 style={{ position: 'sticky', right: 100, minWidth: 150, zIndex: 2, borderLeft: '1px solid #1e3a5c' }}>
                 Verify Status
@@ -269,9 +274,9 @@ export default function FlsTable({
                       : (row[col.key] ?? <span className="text-gray-300">—</span>)}
                   </td>
                 ))}
-                <td className="px-3 py-3 whitespace-nowrap">
+                {/* <td className="px-3 py-3 whitespace-nowrap">
                   <StatusBadge value={row.booking_form_status} />
-                </td>
+                </td> */}
                 <td className="fls-sticky px-3 py-3 whitespace-nowrap"
                   style={{ position: 'sticky', right: 100, background: stickyBg, zIndex: 1, borderLeft: '1px solid #e2e8f0' }}>
                   <VerifyBadge value={row.checking_verify_status} remarks={row.remarks} />
