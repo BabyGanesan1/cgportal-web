@@ -1,7 +1,8 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Eye, Download, FileText, Upload, X } from 'lucide-react';
+import { Eye, Download, FileText, Upload, X, ScrollText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import toast from 'react-hot-toast';
 import DarkDatePicker from './DarkDatePicker';
@@ -118,11 +119,13 @@ interface Props {
   onSubmit: (data: any) => Promise<void>;
   saving: boolean;
   onCancel: () => void;
+  recordId?: string;
 }
 const FORM_TYPE_OPTIONS = [{ value: 'hard copy', label: 'Hard Copy' }];
 
-export default function CheckingForm({ initialValues, onSubmit, saving, onCancel }: Props) {
+export default function CheckingForm({ initialValues, onSubmit, saving, onCancel, recordId }: Props) {
   const { isDark } = useFlsTheme();
+  const router = useRouter();
   const cls = makeClasses(isDark);
 
   // const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: initialValues || {} });
@@ -388,11 +391,21 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
     await onSubmit(clean);
   };
 
-  const sec = (title: string, subtitle?: string) => (
+  const sec = (title: string, fields?: string[], subtitle?: string) => (
     <div className={`${SEC} ${cls.SEC_BORDER}`}>
-      <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>
-        {title}{subtitle && <span className="ml-2 font-normal text-brand-400 normal-case">{subtitle}</span>}
-      </h3>
+      <div className="flex items-center gap-2">
+        <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>
+          {title}{subtitle && <span className="ml-2 font-normal text-brand-400 normal-case">{subtitle}</span>}
+        </h3>
+        {recordId && fields && fields.length > 0 && (
+          <button type="button"
+            onClick={() => router.push(`/fls-booking-portal/checking/${recordId}/logs?fields=${fields.join(',')}&section=${encodeURIComponent(title)}&from=edit`)}
+            className={`p-0.5 rounded transition-colors ${isDark ? 'text-slate-500 hover:text-blue-400 hover:bg-blue-400/10' : 'text-brand-300 hover:text-brand-600 hover:bg-brand-100'}`}
+            title={`View ${title} logs`}>
+            <ScrollText className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -427,7 +440,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
       <div className={cls.CARD}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
 
-          {sec('Identification')}
+          {sec('Identification', ['project', 'unit_no', 'name', 'fls_id', 'fls_name'])}
           {/* Project — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>Project</label>
@@ -487,7 +500,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           </div>
           {/* {dt('login_counter_date', 'Login Counter Date')} */}
 
-          {sec('Dates & Values')}
+          {sec('Dates & Values', ['booking_form_date', 'login_counter_date', 'values_amount', 'rs_in_crs', 'net_sales', 'gross_sales', 'booking_form_status', 'form_type', 'msp', 'msp_land_cost', 'msp_construction_cost', 'msp_amount', 'taken_land_cost', 'taken_construction_cost', 'taken_price', 'discount', 'msp_apartment_cost', 'taken_apartment_cost', 'msp_custom_amount', 'offer', 'offer_description'])}
           {dt('booking_form_date', 'Booking Form Date')}
           {dt('login_counter_date', 'Login Counter Date')}
           {inp('values_amount', 'Values')}
@@ -591,7 +604,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {inp('offer', 'Offer')}
           {area('offer_description', 'Offer Description', HALF)}
 
-          {sec('Source Details')}
+          {sec('Source Details', ['source_taken_lead', 'pushed_date', 'source', 'sub_source', 'iden_date', 'source_remarks'])}
           {inp('source_taken_lead', 'Source Taken Lead')}
           {dt('pushed_date', 'Pushed Date')}
           {/* {inp('source', 'Source')} */}
@@ -619,7 +632,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           </div> */}
           {/* {inp('source_customer_name', 'Customer Name', HALF)} */}
 
-          {sec('SF Lead 1')}
+          {sec('SF Lead 1', ['sf_lead_id1', 'sf_lead1_clone', 'sf_lead_id1_owner', 'pushed_date_lead1', 'sf_lead1_walkin_date', 'walkin_project_lead1'])}
           {inp('sf_lead_id1', 'SF Lead ID 1')}
           {inp('sf_lead1_clone', 'SF Lead 1 Clone')}
           {inp('sf_lead_id1_owner', 'SF Lead ID 1 Owner')}
@@ -627,7 +640,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {dt('sf_lead1_walkin_date', 'SF Lead 1 Walk-in Date')}
           {inp('walkin_project_lead1', 'Walk-in Project (Lead 1)')}
 
-          {sec('SF Lead 2')}
+          {sec('SF Lead 2', ['sf_lead2', 'sf_lead2_clone', 'sf_lead_id2_owner', 'pushed_date_lead2', 'sf_lead2_walkin_date', 'walkin_project_lead2'])}
           {inp('sf_lead2', 'SF Lead 2')}
           {inp('sf_lead2_clone', 'SF Lead 2 Clone')}
           {inp('sf_lead_id2_owner', 'SF Lead ID 2 Owner')}
@@ -635,7 +648,7 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {dt('sf_lead2_walkin_date', 'SF Lead 2 Walk-in Date')}
           {inp('walkin_project_lead2', 'Walk-in Project (Lead 2)')}
 
-          {sec('SF Lead 3')}
+          {sec('SF Lead 3', ['sf_lead3', 'sf_lead3_clone', 'sf_lead_id3_owner', 'pushed_date_lead3', 'sf_lead3_walkin_date', 'walkin_project_lead3'])}
           {inp('sf_lead3', 'SF Lead 3')}
           {inp('sf_lead3_clone', 'SF Lead 3 Clone')}
           {inp('sf_lead_id3_owner', 'SF Lead ID 3 Owner')}
@@ -643,13 +656,13 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
           {dt('sf_lead3_walkin_date', 'SF Lead 3 Walk-in Date')}
           {inp('walkin_project_lead3', 'Walk-in Project (Lead 3)')}
 
-          {sec('Sell Do Leads & Walk-in')}
+          {sec('Sell Do Leads & Walk-in', ['sell_do_lead1', 'sell_do_lead2', 'sell_do_lead3', 'walk_in_date', 'lead_remarks'])}
           {inp('sell_do_lead1', 'Sell Do Lead 1')}
           {inp('sell_do_lead2', 'Sell Do Lead 2')}
           {inp('sell_do_lead3', 'Sell Do Lead 3')}
           {dt('walk_in_date', 'Walk In Date')}
 
-          {sec('Upfront & Verification')}
+          {sec('Upfront & Verification', ['upfront_details', 'checking_verify_status', 'remarks'])}
           {area('upfront_details', 'Upfront Details')}
 
           {/* Checking Verify Status — CommonSelect */}
@@ -929,7 +942,17 @@ export default function CheckingForm({ initialValues, onSubmit, saving, onCancel
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end gap-3">
+      <div className="mt-4 flex items-center gap-3">
+        {recordId && (
+          <button type="button"
+            onClick={() => router.push(`/fls-booking-portal/checking/${recordId}/logs?module=CHECKING&from=edit`)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}
+            title="View Checking Logs">
+            <ScrollText className="w-4 h-4" />
+            Logs
+          </button>
+        )}
+        <div className="flex-1" />
         <button type="button" onClick={onCancel}
           className={`px-5 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}>
           Cancel

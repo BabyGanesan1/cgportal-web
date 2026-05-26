@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
-import { BarChart2, Users, Layers, FileText } from 'lucide-react';
+import { BarChart2, Users, Layers, FileText, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import FlsLayout from '../_components/FlsLayout';
 import FlsFilter from '../_components/FlsFilter';
@@ -117,6 +117,16 @@ export default function FlsBookingListPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => router.push('/fls-booking-portal/booking/delete-logs')}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Deleted Records
+        </button>
       </div>
 
       <FlsFilter

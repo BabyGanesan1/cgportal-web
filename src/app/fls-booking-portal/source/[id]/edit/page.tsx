@@ -82,6 +82,7 @@ export default function SourceEditPage() {
             onSubmit={handleSubmit}
             saving={saving}
             onCancel={() => router.push('/fls-booking-portal/source')}
+            recordId={id}
           />
         </>
       )}

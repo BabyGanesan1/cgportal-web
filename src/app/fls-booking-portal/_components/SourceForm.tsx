@@ -1,7 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Eye, Download, FileText } from 'lucide-react';
+import { Eye, Download, FileText, ScrollText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import DarkDatePicker from './DarkDatePicker';
 import CommonSelect from './CommonSelect';
@@ -101,10 +102,12 @@ interface Props {
   onSubmit: (data: any) => Promise<void>;
   saving: boolean;
   onCancel: () => void;
+  recordId?: string;
 }
 
-export default function SourceForm({ initialValues, onSubmit, saving, onCancel }: Props) {
+export default function SourceForm({ initialValues, onSubmit, saving, onCancel, recordId }: Props) {
   const { isDark } = useFlsTheme();
+  const router = useRouter();
   const cls = makeClasses(isDark);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: initialValues || {} });
@@ -189,11 +192,21 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
     </div>
   );
 
-  const sec = (title: string, subtitle?: string) => (
+  const sec = (title: string, subtitle?: string | null, fields?: string[]) => (
     <div className={`${SEC} ${cls.SEC_BORDER}`}>
-      <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>
-        {title}{subtitle && <span className={`ml-2 font-normal normal-case ${cls.SEC_SUB}`}>{subtitle}</span>}
-      </h3>
+      <div className="flex items-center gap-2">
+        <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>
+          {title}{subtitle && <span className={`ml-2 font-normal normal-case ${cls.SEC_SUB}`}>{subtitle}</span>}
+        </h3>
+        {recordId && fields && fields.length > 0 && (
+          <button type="button"
+            onClick={() => router.push(`/fls-booking-portal/source/${recordId}/logs?fields=${fields.join(',')}&section=${encodeURIComponent(title)}&from=edit`)}
+            className={`p-0.5 rounded transition-colors ${isDark ? 'text-slate-500 hover:text-blue-400 hover:bg-blue-400/10' : 'text-brand-300 hover:text-brand-600 hover:bg-brand-100'}`}
+            title={`View ${title} logs`}>
+            <ScrollText className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -232,7 +245,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dis('booking_form_date', 'Booking Form Date')}
           {dis('login_counter_date', 'Login Counter Date')}
 
-          {sec('Source Details')}
+          {sec('Source Details', undefined, ['source_taken_lead', 'pushed_date', 'source', 'sub_source', 'iden_date', 'source_remarks', 'customer_type'])}
           {txt('source_taken_lead', 'Source Taken Lead')}
           {dt('pushed_date', 'Pushed Date')}
 
@@ -267,7 +280,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           />
           {/* {txt('source_customer_name', 'Customer Name', HALF)} */}
 
-          {sec('SF Lead 1')}
+          {sec('SF Lead 1', undefined, ['sf_lead_id1', 'sf_lead1_clone', 'sf_lead_id1_owner', 'pushed_date_lead1', 'sf_lead1_walkin_date', 'walkin_project_lead1'])}
           {txt('sf_lead_id1', 'SF Lead ID 1')}
           {txt('sf_lead1_clone', 'SF Lead 1 Clone')}
           {txt('sf_lead_id1_owner', 'SF Lead ID 1 Owner')}
@@ -275,7 +288,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dt('sf_lead1_walkin_date', 'SF Lead 1 Walk-in Date')}
           {txt('walkin_project_lead1', 'Walk-in Project (Lead 1)')}
 
-          {sec('SF Lead 2')}
+          {sec('SF Lead 2', undefined, ['sf_lead2', 'sf_lead2_clone', 'sf_lead_id2_owner', 'pushed_date_lead2', 'sf_lead2_walkin_date', 'walkin_project_lead2'])}
           {txt('sf_lead2', 'SF Lead 2')}
           {txt('sf_lead2_clone', 'SF Lead 2 Clone')}
           {txt('sf_lead_id2_owner', 'SF Lead ID 2 Owner')}
@@ -283,7 +296,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dt('sf_lead2_walkin_date', 'SF Lead 2 Walk-in Date')}
           {txt('walkin_project_lead2', 'Walk-in Project (Lead 2)')}
 
-          {sec('SF Lead 3')}
+          {sec('SF Lead 3', undefined, ['sf_lead3', 'sf_lead3_clone', 'sf_lead_id3_owner', 'pushed_date_lead3', 'sf_lead3_walkin_date', 'walkin_project_lead3'])}
           {txt('sf_lead3', 'SF Lead 3')}
           {txt('sf_lead3_clone', 'SF Lead 3 Clone')}
           {txt('sf_lead_id3_owner', 'SF Lead ID 3 Owner')}
@@ -291,12 +304,12 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {dt('sf_lead3_walkin_date', 'SF Lead 3 Walk-in Date')}
           {txt('walkin_project_lead3', 'Walk-in Project (Lead 3)')}
 
-          {sec('Sell Do Leads')}
+          {sec('Sell Do Leads', undefined, ['sell_do_lead1', 'sell_do_lead2', 'sell_do_lead3'])}
           {txt('sell_do_lead1', 'Sell Do Lead 1')}
           {txt('sell_do_lead2', 'Sell Do Lead 2')}
           {txt('sell_do_lead3', 'Sell Do Lead 3')}
 
-          {sec('Walk-in & Verification')}
+          {sec('Walk-in & Verification', undefined, ['walk_in_date', 'lead_remarks'])}
           {dt('walk_in_date', 'Walk In Date')}
 
           {/* Source Verify Status — CommonSelect (fixed: was incorrectly bound to `source`) */}
@@ -329,7 +342,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
             />
           </div> */}
 
-          {sec('Contact Info')}
+          {sec('Contact Info', undefined, ['phone_number_1', 'phone_number_2', 'phone_number_3', 'phone_number_4', 'mail_id_1', 'mail_id_2', 'mail_id_3', 'mail_id_4'])}
           {txt('phone_number_1', 'Phone Number 1')}
           {txt('phone_number_2', 'Phone Number 2')}
           {txt('phone_number_3', 'Phone Number 3')}
@@ -339,7 +352,7 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
           {txt('mail_id_3', 'Mail ID 3')}
           {txt('mail_id_4', 'Mail ID 4')}
 
-          {sec('MSP Calculations')}
+          {sec('MSP Calculations', undefined, ['msp', 'msp_land_cost', 'msp_construction_cost', 'msp_amount', 'taken_land_cost', 'taken_construction_cost', 'taken_price', 'discount', 'msp_custom_amount', 'msp_apartment_cost', 'taken_apartment_cost'])}
           {/* Category selector — always visible */}
           <div>
             <label className={cls.LABEL}>Category</label>
@@ -548,7 +561,17 @@ export default function SourceForm({ initialValues, onSubmit, saving, onCancel }
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end gap-3">
+      <div className="mt-4 flex items-center gap-3">
+        {recordId && (
+          <button type="button"
+            onClick={() => router.push(`/fls-booking-portal/source/${recordId}/logs?module=SOURCE&from=edit`)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}
+            title="View Source Logs">
+            <ScrollText className="w-4 h-4" />
+            Logs
+          </button>
+        )}
+        <div className="flex-1" />
         <button type="button" onClick={onCancel}
           className={`px-5 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}>
           Cancel

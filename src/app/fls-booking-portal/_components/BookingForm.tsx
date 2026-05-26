@@ -1,7 +1,8 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Upload, FileText, Eye, Download } from 'lucide-react';
+import { X, Upload, FileText, Eye, Download, ScrollText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import toast from 'react-hot-toast';
 import DarkDatePicker from './DarkDatePicker';
@@ -82,6 +83,7 @@ interface Props {
   onSubmit: (data: any) => Promise<void>;
   saving: boolean;
   onCancel: () => void;
+  recordId?: string;
 }
 
 // ── Select option lists ─────────────────────────────────────────────────────
@@ -93,8 +95,9 @@ const ACK_OPTIONS = [
   { value: 'non-acknowledgement', label: 'Non-Acknowledgement' },
 ];
 
-export default function BookingForm({ initialValues, onSubmit, saving, onCancel }: Props) {
+export default function BookingForm({ initialValues, onSubmit, saving, onCancel, recordId }: Props) {
   const { isDark } = useFlsTheme();
+  const router = useRouter();
   const cls = makeClasses(isDark);
 
   const { register, handleSubmit, reset, watch, setValue, setError, clearErrors, formState: { errors } } = useForm({
@@ -345,9 +348,19 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
     );
   };
 
-  const sec = (title: string) => (
+  const sec = (title: string, fields?: string[]) => (
     <div className={`${SEC} ${cls.SEC_BORDER}`}>
-      <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>{title}</h3>
+      <div className="flex items-center gap-2">
+        <h3 className={`text-xs font-semibold uppercase tracking-wider ${cls.SEC_TITLE}`}>{title}</h3>
+        {recordId && fields && fields.length > 0 && (
+          <button type="button"
+            onClick={() => router.push(`/fls-booking-portal/booking/${recordId}/logs?fields=${fields.join(',')}&section=${encodeURIComponent(title)}&from=edit`)}
+            className={`p-0.5 rounded transition-colors ${isDark ? 'text-slate-500 hover:text-blue-400 hover:bg-blue-400/10' : 'text-brand-300 hover:text-brand-600 hover:bg-brand-100'}`}
+            title={`View ${title} logs`}>
+            <ScrollText className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -396,7 +409,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
       <div className={cls.CARD}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
 
-          {sec('Project & Unit Info')}
+          {sec('Project & Unit Info', ['project', 'region', 'stock', 'pl_team', 'type', 'con', 'unit_no', 'name', 'swap_from_unit_details'])}
           {/* Project — dynamic search dropdown */}
           <div>
             <label className={cls.LABEL}>Project{reqStar('project')}</label>
@@ -433,7 +446,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {f('name', 'Customer Name')}
           {fa('swap_from_unit_details', 'Swap From Unit Details')}
 
-          {sec('Dates & Values')}
+          {sec('Dates & Values', ['booking_form_date', 'login_counter_date', 'values_amount', 'rs_in_crs', 'net_sales', 'gross_sales', 'booking_form_status', 'form_type'])}
           {fd('booking_form_date', 'Booking Form Date')}
           {fd('login_counter_date', 'Login Counter Date')}
           {f('values_amount', 'Values')}
@@ -493,7 +506,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
             {errMsg('form_type')}
           </div>
 
-          {sec('Booking Form Details')}
+          {sec('Booking Form Details', ['bf_received_date', 'booking_form_received_by_whom', 'hold_date', 'file_transfer_details', 'file_transfer_date', 'lbc_date'])}
           {fd('bf_received_date', 'BF Received Date')}
           {/* BF Received By Whom — dynamic search + free-text */}
           <div>
@@ -519,7 +532,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {fa('file_transfer_details', 'File Transfer Details')}
           {fd('lbc_date', 'LBC Date')}
 
-          {sec('FLS & Manager Info')}
+          {sec('FLS & Manager Info', ['fls_id', 'fls_name', 'mgr_id', 'mgr_name', 'avp_id', 'avp_name', 'scheme', 'acknowledgement', 'acknowledgement_remarks'])}
 
           {/* FLS ID — dynamic search dropdown */}
           <div>
@@ -679,7 +692,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
             </div>
           )}
 
-          {sec('PDC Details')}
+          {sec('PDC Details', ['pdc_status', 'pdc_cheque_received', 'pdc_amount', 'pdc_date', 'pdc_cheque_no', 'bank_name_pdc'])}
           {f('pdc_status', 'PDC Status')}
           {f('pdc_cheque_received', 'PDC Cheque Received')}
           {f('pdc_amount', 'PDC Amount')}
@@ -687,7 +700,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {f('pdc_cheque_no', 'PDC Cheque No')}
           {f('bank_name_pdc', 'Bank Name (PDC)')}
 
-          {sec('Payment Details')}
+          {sec('Payment Details', ['payment_mode', 'payment_confirmation_with_confirmed_date', 'booking_amount', 'cheque_date', 'cheque_no', 'bank_name'])}
           {f('payment_mode', 'Payment Mode')}
           {f('booking_amount', 'Booking Amount')}
           {fd('cheque_date', 'Cheque Date')}
@@ -695,7 +708,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {f('bank_name', 'Bank Name')}
           {fa('payment_confirmation_with_confirmed_date', 'Payment Confirmation with Date', HALF)}
 
-          {sec('CIT Verification')}
+          {sec('CIT Verification', ['sent_for_cit_verification_date', 'sf_record_id', 'status_of_cit_verification', 'verified_by_whom', 'verified_date'])}
           {fd('sent_for_cit_verification_date', 'Sent for CIT Verification Date')}
           {f('sf_record_id', 'SF Record ID')}
           {f('status_of_cit_verification', 'Status of CIT Verification')}
@@ -720,7 +733,7 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           </div>
           {fd('verified_date', 'Verified Date')}
 
-          {sec('Contact Info')}
+          {sec('Contact Info', ['phone_number_1', 'phone_number_2', 'phone_number_3', 'phone_number_4', 'mail_id_1', 'mail_id_2', 'mail_id_3', 'mail_id_4'])}
           {f('phone_number_1', 'Phone Number 1')}
           {f('phone_number_2', 'Phone Number 2')}
           {f('phone_number_3', 'Phone Number 3')}
@@ -730,11 +743,11 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
           {f('mail_id_3', 'Mail ID 3')}
           {f('mail_id_4', 'Mail ID 4')}
 
-          {sec('Remarks')}
+          {sec('Remarks', ['remarks', 'login_before_cancel_remarks'])}
           {fa('remarks', 'Remarks')}
           {fa('login_before_cancel_remarks', 'Login Before Cancel / Relogin Remarks')}
 
-          {sec('Description & Attachments')}
+          {sec('Description & Attachments', ['description', 'attachments'])}
           <div className={FULL}>
             <label className={cls.LABEL}>Description</label>
             <textarea
@@ -809,7 +822,17 @@ export default function BookingForm({ initialValues, onSubmit, saving, onCancel 
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end gap-3">
+      <div className="mt-4 flex items-center gap-3">
+        {recordId && (
+          <button type="button"
+            onClick={() => router.push(`/fls-booking-portal/booking/${recordId}/logs?module=BOOKING&from=edit`)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}
+            title="View Booking Logs">
+            <ScrollText className="w-4 h-4" />
+            Logs
+          </button>
+        )}
+        <div className="flex-1" />
         <button type="button" onClick={onCancel}
           className={`px-5 py-2 text-sm border rounded-lg transition-colors ${isDark ? 'text-slate-300 border-[#1e3a55] hover:bg-[#0a1827]' : 'text-brand-700 border-brand-200 hover:bg-brand-50'}`}>
           Cancel

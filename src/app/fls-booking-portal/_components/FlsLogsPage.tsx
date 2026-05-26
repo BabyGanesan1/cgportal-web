@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, User, ChevronLeft, ChevronRight, Search, X, RefreshCw, Filter, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+import { ArrowLeft, Clock, User, ChevronLeft, ChevronRight, Search, X, RefreshCw, Filter, ShieldCheck, ShieldAlert, ShieldX, ScrollText } from 'lucide-react';
+import DarkDatePicker from './DarkDatePicker';
 import { useRouter } from 'next/navigation';
 import FlsLayout from './FlsLayout';
 import api from '../../../lib/api';
@@ -132,11 +133,15 @@ function groupLogs(logs: FlsLog[]): LogGroup[] {
 
 const TYPE_LABEL: Record<PageType, string> = { booking: 'Booking', checking: 'Checking', source: 'Source' };
 
-interface Props { type: PageType; id: string; }
+interface Props { type: PageType; id: string; initialModule?: string; initialFieldNames?: string; sectionLabel?: string; from?: string; }
 
-export default function FlsLogsPage({ type, id }: Props) {
+export default function FlsLogsPage({ type, id, initialModule = '', initialFieldNames = '', sectionLabel = '', from = '' }: Props) {
   const router = useRouter();
   const label = TYPE_LABEL[type];
+
+  // Section filter — set when navigating from a form section log icon
+  const [activeFieldNames, setActiveFieldNames] = useState(initialFieldNames);
+  const [activeSectionLabel, setActiveSectionLabel] = useState(sectionLabel);
 
   // Checking verify status summary (fetched from booking record)
   const [verifyStatus, setVerifyStatus] = useState<{ status: string | null; remarks: string | null } | null>(null);
@@ -147,8 +152,8 @@ export default function FlsLogsPage({ type, id }: Props) {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
-  const [pending, setPending] = useState({ ...EMPTY_FILTERS });
+  const [filters, setFilters] = useState({ ...EMPTY_FILTERS, module: initialModule });
+  const [pending, setPending] = useState({ ...EMPTY_FILTERS, module: initialModule });
 
   // Fetch the booking record once to get checking_verify_status and remarks
   useEffect(() => {
@@ -169,6 +174,7 @@ export default function FlsLogsPage({ type, id }: Props) {
     let cancelled = false;
     setLoading(true);
     const qp: Record<string, any> = { page, limit: PAGE_SIZE };
+    if (activeFieldNames) qp.field_names = activeFieldNames;
     if (filters.search) qp.search = filters.search;
     if (filters.field_name) qp.field_name = filters.field_name;
     if (filters.user_name) qp.user_name = filters.user_name;
@@ -188,7 +194,7 @@ export default function FlsLogsPage({ type, id }: Props) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [id, page, filters]);
+  }, [id, page, filters, activeFieldNames]);
 
   const handleApply = () => { setFilters({ ...pending }); setPage(1); };
   const handleReset = () => { setPending({ ...EMPTY_FILTERS }); setFilters({ ...EMPTY_FILTERS }); setPage(1); };
@@ -200,10 +206,10 @@ export default function FlsLogsPage({ type, id }: Props) {
     <FlsLayout title="Change Logs" subtitle={`Activity history for ${label} #${id}`}>
       <div className="mb-5">
         <button
-          onClick={() => router.push(`/fls-booking-portal/${type}`)}
+          onClick={() => router.push(from === 'edit' ? `/fls-booking-portal/${type}/${id}/edit` : `/fls-booking-portal/${type}`)}
           className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to {label} List
+          <ArrowLeft className="w-4 h-4" /> {from === 'edit' ? `Back to Edit ${label}` : `Back to ${label} List`}
         </button>
       </div>
 
@@ -219,6 +225,25 @@ export default function FlsLogsPage({ type, id }: Props) {
         </div>
         <Clock className="w-6 h-6 text-slate-400" />
       </div>
+
+      {/* Section filter badge — shown when navigating from a form section log icon */}
+      {activeFieldNames && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-4 bg-blue-50 border border-blue-200 rounded-xl text-sm">
+          <ScrollText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <span className="text-blue-700 font-medium">
+            Section filter: <span className="font-semibold">{activeSectionLabel || 'Custom section'}</span>
+          </span>
+          <span className="text-blue-400 text-xs ml-1">— showing logs for this section's fields only</span>
+          <button
+            type="button"
+            onClick={() => { setActiveFieldNames(''); setActiveSectionLabel(''); setPage(1); }}
+            className="ml-auto p-0.5 rounded text-blue-400 hover:text-blue-700 hover:bg-blue-100 transition-colors"
+            title="Clear section filter"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Checking Verify Status Panel */}
       {!verifyLoading && verifyStatus && (() => {
@@ -318,13 +343,11 @@ export default function FlsLogsPage({ type, id }: Props) {
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Date From</label>
-            <input type="date" className="w-full py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400 shadow-sm"
-              value={pending.date_from} onChange={e => set('date_from')(e.target.value)} />
+            <DarkDatePicker value={pending.date_from} onChange={set('date_from')} placeholder="From date" />
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Date To</label>
-            <input type="date" className="w-full py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400 shadow-sm"
-              value={pending.date_to} onChange={e => set('date_to')(e.target.value)} />
+            <DarkDatePicker value={pending.date_to} onChange={set('date_to')} placeholder="To date" />
           </div>
         </div>
         <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
@@ -366,7 +389,16 @@ export default function FlsLogsPage({ type, id }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-800 text-sm">{group.user_name || group.user_email}</span>
                     {group.action === 'CREATE' && <span className="text-sm text-slate-600">created the record</span>}
-                    {group.action === 'DELETE' && <span className="text-sm text-slate-600">deleted the record</span>}
+                    {group.action === 'DELETE' && (
+                      <span className="text-sm text-slate-600">
+                        deleted the record
+                        {group.entries.some(e => e.field_name) && (
+                          <span className="ml-1 text-red-500 font-medium">
+                            · {group.entries.filter(e => e.field_name).length} field snapshot{group.entries.filter(e => e.field_name).length !== 1 ? 's' : ''} stored
+                          </span>
+                        )}
+                      </span>
+                    )}
                     {group.action === 'UPDATE' && (
                       <span className="text-sm text-slate-600">
                         updated {group.entries.filter(e => e.field_name).length} field{group.entries.filter(e => e.field_name).length !== 1 ? 's' : ''}
@@ -416,9 +448,46 @@ export default function FlsLogsPage({ type, id }: Props) {
                 </div>
               )}
 
-              {(group.action === 'CREATE' || group.action === 'DELETE') && (
+              {group.action === 'DELETE' && group.entries.some(e => e.field_name) && (
+                <div className="overflow-x-auto">
+                  <div className="px-5 py-2.5 bg-red-50 border-b border-red-100 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Deleted Record Snapshot</span>
+                    <span className="text-xs text-red-400">— values at time of deletion</span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-red-50 border-b border-red-100">
+                        <th className="text-left px-5 py-2.5 text-xs font-semibold text-red-400 uppercase tracking-wide w-28">Module</th>
+                        <th className="text-left px-5 py-2.5 text-xs font-semibold text-red-400 uppercase tracking-wide w-1/3">Field</th>
+                        <th className="text-left px-5 py-2.5 text-xs font-semibold text-red-400 uppercase tracking-wide">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-red-50">
+                      {group.entries.filter(e => e.field_name).map(entry => (
+                        <tr key={entry.id} className="hover:bg-red-50/60 transition-colors">
+                          <td className="px-5 py-2.5"><ModuleBadge module={entry.module} /></td>
+                          <td className="px-5 py-2.5 font-medium text-slate-700">{getLabel(entry.field_name)}</td>
+                          <td className="px-5 py-2.5">
+                            {entry.old_value
+                              ? <span className="inline-block bg-red-50 text-red-700 border border-red-100 rounded px-2 py-0.5 text-xs font-mono break-all">{entry.old_value}</span>
+                              : <span className="text-slate-300 text-xs italic">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {group.action === 'CREATE' && (
                 <div className="px-5 py-3 text-sm text-slate-500 italic">
-                  {group.action === 'CREATE' ? 'Record was created.' : 'Record was soft-deleted (marked inactive).'}
+                  Record was created.
+                </div>
+              )}
+
+              {group.action === 'DELETE' && !group.entries.some(e => e.field_name) && (
+                <div className="px-5 py-3 text-sm text-slate-500 italic">
+                  Record was soft-deleted (marked inactive).
                 </div>
               )}
             </div>

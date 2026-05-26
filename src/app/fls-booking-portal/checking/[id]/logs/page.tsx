@@ -1,8 +1,13 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import FlsLogsPage from '../../../_components/FlsLogsPage';
 
 export default function CheckingLogsPage() {
   const { id } = useParams<{ id: string }>();
-  return <FlsLogsPage type="checking" id={id} />;
+  const searchParams = useSearchParams();
+  const initialModule = searchParams.get('module') || '';
+  const initialFieldNames = searchParams.get('fields') || '';
+  const sectionLabel = searchParams.get('section') || '';
+  const from = searchParams.get('from') || '';
+  return <FlsLogsPage type="checking" id={id} initialModule={initialModule} initialFieldNames={initialFieldNames} sectionLabel={sectionLabel} from={from} />;
 }

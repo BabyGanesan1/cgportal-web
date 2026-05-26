@@ -10,32 +10,33 @@ interface Props {
 export default function FlsEditLockBanner({ editors }: Props) {
   if (editors.length === 0) return null;
 
-  const label = editors.length === 1
-    ? 'another user'
-    : `${editors.length} other users`;
-
   return (
-    <div className="mb-4 flex items-start gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
-      <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-amber-800">
-          This record is currently being edited by {label}
+    <div className="fixed top-5 right-5 z-50 w-72 bg-amber-50 border border-amber-300 rounded-xl shadow-lg overflow-hidden">
+      {/* Header strip */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-amber-100 border-b border-amber-200">
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+        <p className="text-xs font-semibold text-amber-800 leading-tight">
+          Being edited by {editors.length === 1 ? 'another user' : `${editors.length} others`}
         </p>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-          {editors.map(e => (
-            <div key={e.id} className="flex items-center gap-1.5 text-xs text-amber-700">
-              <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
-                <User className="w-3 h-3 text-amber-600" />
-              </div>
-              <span className="font-medium">{e.name}</span>
+      </div>
+
+      {/* Editor list */}
+      <div className="px-3 py-2 flex flex-col gap-1.5">
+        {editors.map(e => (
+          <div key={e.id} className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
+              <User className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-amber-800 truncate">{e.name}</p>
               {e.email && (
-                <span className="text-amber-500 truncate max-w-[180px]">({e.email})</span>
+                <p className="text-[10px] text-amber-500 truncate">{e.email}</p>
               )}
             </div>
-          ))}
-        </div>
-        <p className="mt-1.5 text-xs text-amber-600">
-          Saving your changes may overwrite theirs. Please coordinate before saving.
+          </div>
+        ))}
+        <p className="text-[10px] text-amber-600 mt-0.5 leading-tight">
+          Saving may overwrite their changes.
         </p>
       </div>
     </div>

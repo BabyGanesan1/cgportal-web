@@ -85,6 +85,7 @@ export default function CheckingEditPage() {
             onSubmit={handleSubmit}
             saving={saving}
             onCancel={() => router.push('/fls-booking-portal/checking')}
+            recordId={id}
           />
         </>
       )}
