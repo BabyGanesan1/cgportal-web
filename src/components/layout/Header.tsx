@@ -4,9 +4,9 @@ import { User, Bell, LogOut, ChevronDown } from 'lucide-react';
 import { getAdmin, clearAuth } from '../../lib/auth';
 import Link from 'next/link';
 
-interface HeaderProps { title: string; subtitle?: string; isAdmin?: boolean; }
+interface HeaderProps { title: string; subtitle?: string; isAdmin?: boolean; headerActions?: React.ReactNode; }
 
-export default function Header({ title, subtitle, isAdmin = true }: HeaderProps) {
+export default function Header({ title, subtitle, isAdmin = true, headerActions }: HeaderProps) {
   const [admin, setAdmin] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -133,6 +133,7 @@ export default function Header({ title, subtitle, isAdmin = true }: HeaderProps)
       </div>
 
       <div className="flex items-center gap-3">
+        {headerActions}
         <button className="p-2 rounded-lg text-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-colors">
           <Bell className="w-5 h-5" />
         </button>

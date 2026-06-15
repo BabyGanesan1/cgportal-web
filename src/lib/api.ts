@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // const API_BASE = 'https://cgpropertyapi.digilogy.dev/api';
-const API_BASE = 'http://localhost:5000/api';
+export const API_BASE = 'http://localhost:5000/api';
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 30000,
