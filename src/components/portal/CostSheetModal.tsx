@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+﻿import React, { useRef, useState, useEffect } from 'react';
 import { X, Download, FileText, Loader2, Mail, Send, CheckCircle2, AlertCircle, ChevronLeft } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import html2canvas from 'html2canvas';
@@ -10,6 +10,22 @@ interface CostSheetModalProps {
   onClose: () => void;
   unit: any;
   property: any;
+}
+
+function carParkTCText(carParkType: string | null | undefined): string {
+  if (!carParkType) return '1CCP (1Covered Car Parking)';
+  const type = carParkType.trim().toUpperCase();
+  const map: Record<string, string> = {
+    '1CCP': '1CCP (1Covered Car Parking)',
+    '2CCP': '2CCP (2Covered Car Parking)',
+    '1OCP': '1OCP (1Open Car Parking)',
+    '2OCP': '2OCP (2Open Car Parking)',
+    '1OCP+1CCP': '1OCP+1CCP (1Open Car Parking + 1Covered Car Parking)',
+    '1TCCP': '1TCCP (1Tandem Covered Car Parking)',
+    '2TCCP': '2TCCP (2Tandem Covered Car Parking)',
+    '1OCP+1TCCP': '1OCP+1TCCP (1Open Car Parking + 1Tandem Covered Car Parking)',
+  };
+  return map[type] || `${carParkType}`;
 }
 
 async function toBase64(url: string): Promise<string> {
@@ -143,6 +159,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
   const anyOtherRaw = (parseFloat(unit.any_other_charges) || 0) * L;
   const totalRaw = basicRaw + plcRaw + frcRaw + infraRaw + otherRaw;
   const gstRaw = (parseFloat(unit.gst) || 0) * L;
+  const gstPct = 5;
   const modificationRaw = (parseFloat(unit.modification) || 0) * L;
   const grandRaw = totalRaw + gstRaw + modificationRaw + anyOtherRaw;
 
@@ -311,7 +328,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             <MRow label="Other Charges" value={fmt(otherRaw)} />
             {anyOtherRaw > 0 && <MRow label={`${unit.any_other_charges_remarks ? `${unit.any_other_charges_remarks}` : ''}`} value={fmt(anyOtherRaw)} />}
             <MRow label="Total (Before GST)" value={fmt(totalRaw)} bold />
-            <MRow label="GST - As Applicable" value={fmt(gstRaw)} />
+            <MRow label={`GST ${gstPct}% (As per Govt. Charges)`} value={fmt(gstRaw)} />
             <MRow label="Total Cost" value={fmt(grandRaw)} dark />
           </>
         )}
@@ -451,7 +468,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
                     <td className="px-6 py-4 text-sm whitespace-nowrap">{fmt(totalRaw)}</td>
                   </tr>
                   <tr>
-                    <td className="px-6 py-3 border-r border-brand-100 text-left text-xs font-bold">GST - AS APPLICABLE</td>
+                    <td className="px-6 py-3 border-r border-brand-100 text-left text-xs font-bold">{`GST ${gstPct}% (AS PER GOVT. CHARGES)`}</td>
                     <td className="px-6 py-3 font-semibold text-sm whitespace-nowrap">{fmt(gstRaw)}</td>
                   </tr>
                   <tr className="bg-[#102a43] text-white font-bold">
@@ -761,7 +778,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
                           <td style={{ padding: 0 }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px', height: '100%' }}>{fmt(totalRaw).replace(/[^0-9.,]/g, '')}</div></td>
                         </tr>
                         <tr style={{ borderBottom: '1px solid #9ca3af' }}>
-                          <td style={{ padding: 0, borderRight: '1px solid #9ca3af' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '8px', height: '100%' }}>GST (As applicable)</div></td>
+                          <td style={{ padding: 0, borderRight: '1px solid #9ca3af' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '8px', height: '100%' }}>{`GST ${gstPct}% (AS PER GOVT. CHARGES)`}</div></td>
                           <td style={{ padding: 0 }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px', height: '100%' }}>{fmt(gstRaw).replace(/[^0-9.,]/g, '')}</div></td>
                         </tr>
                         <tr style={{ fontWeight: 800, background: '#f3f4f6' }}>
@@ -862,8 +879,8 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#374151', lineHeight: 1.7 }}>
               <li>Infrastructure and other charges referred above are limited to the infrastructure provided within the project and do not include panchayat/municipal/corporation water and sewage connection charges/ deposits.</li>
               <li>Customer(s) must deduct 1% TDS and share proof to Casagrand within 30 days of milestone payments.</li>
-              <li>Corpus Fund of Rs.50,000/- will be payable at the time of handover, and Casagrand will maintain the property for the first 6 months from the date of project handover.</li>
-              <li>Basic Cost is inclusive of 1CCP (1Covered Car Parking).</li>
+              {unit.corpus_fund && <li>Corpus Fund of Rs.{unit.corpus_fund}/- will be payable at the time of handover, and Casagrand will maintain the property for the first 6 months from the date of project handover.</li>}
+              {unit.car_park_type && <li>Basic Cost is inclusive of {carParkTCText(unit.car_park_type)}.</li>}
               <li>This price sheet is valid solely on its date of issuance.</li>
               <li>All the above terms &amp; conditions are to be read in continuation of the booking form.</li>
               <li>I/We understand and accept the above Terms &amp; Conditions, price sheet and payment schedule for the unit selected.</li>

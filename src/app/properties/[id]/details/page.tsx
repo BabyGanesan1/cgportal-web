@@ -172,14 +172,14 @@ export default function PropertyDetailsPage() {
                     <th>Unit No</th><th>Status</th><th>BHK</th><th>Floor</th><th>Facing</th><th>Type</th>
                     <th>Carpet (sqft)</th><th>SBA (sqft)</th><th>This Week (L)</th><th>NW Price (L)</th>
                     <th>PLC/sqft</th><th>FRC/sqft</th><th>Car Park</th>
-                    <th>Incl CP (L)</th><th>Total (L)</th><th>GST (L)</th><th>Grand Total (L)</th><th>Block/Phase</th>
+                    <th>Incl CP (L)</th><th>Total (L)</th><th>GST (L)</th><th>Grand Total (L)</th><th>Corpus Fund (₹)</th><th>Block/Phase</th>
                     <th>Unit Area</th><th>Balcony Area</th><th>Total Area</th><th>DLD Charges</th><th>Admin Fee</th>
                     <th className="px-3 py-2 text-left font-semibold text-white border-b border-brand-100 sticky right-0 bg-[#102a43] z-20 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.length === 0 ? (
-                    <tr><td colSpan={24} className="text-center py-12 text-brand-400">No units found</td></tr>
+                    <tr><td colSpan={25} className="text-center py-12 text-brand-400">No units found</td></tr>
                   ) : data.map(row => (
                     <tr key={row.id} className="group animate-fade-in hover:bg-brand-50/50">
                       <td className="font-bold text-brand-800">{row.unit_no}</td>
@@ -196,6 +196,7 @@ export default function PropertyDetailsPage() {
                       <td className="text-right font-medium">{row.total_values}</td>
                       <td className="text-right">{row.gst}</td>
                       <td className="text-right font-black text-brand-900">₹{row.grand_total}L</td>
+                      <td>{row.corpus_fund || '-'}</td>
                       <td>{row.block}{row.phase ? ` / ${row.phase}` : ''}</td>
                       <td className="text-right">{row.unit_area}</td>
                       <td className="text-right">{row.balcony_area}</td>
