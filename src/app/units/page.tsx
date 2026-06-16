@@ -24,7 +24,7 @@ const HEADERS = [
   'Land Area (SQFT)', 'Land Rate / SQFT', 'Land Area (SQ.YDS)', 'Land Rate / SQ.YDS', 'Land Rate (L)',
   'Super Built-up Area', 'This Week Price', 'Next Week Price', 'PLC / SQFT', 'FRC / SQFT',
   'Terrace (SQFT)', 'Car Park Type', 'This Week Price Incl CP (L)', 'Next Week Price Incl CP (L)',
-  'Other Charges (L)', 'Infra Charges (L)', 'Any Other Charges (L)', 'Any Other Charges (Remarks)', 'Total Values (L)', 'GST', 'Grand Total (L)', 'PLC Reason', 'Block', 'Phase', 'OTP',
+  'Other Charges (L)', 'Infra Charges (L)', 'Any Other Charges (L)', 'Any Other Charges (Remarks)', 'Corpus Fund', 'Total Values (L)', 'GST', 'Grand Total (L)', 'PLC Reason', 'Block', 'Phase', 'OTP',
   'CP Charges', 'Modification', 'UDS', 'No of CP', 'Image URL',
   'Unit Area', 'Balcony Area', 'Total Area', 'DLD Charges', 'Admin Fee',
 ];
@@ -373,6 +373,7 @@ export default function GlobalUnitsPage() {
                     <td className="px-3 py-2 text-right">{row.infra_charges}</td>
                     <td className="px-3 py-2 text-right text-amber-700 font-medium">{row.any_other_charges}</td>
                     <td className="px-3 py-2 max-w-[140px] truncate text-amber-600 italic text-[10px]" title={row.any_other_charges_remarks}>{row.any_other_charges_remarks || '-'}</td>
+                    <td className="px-3 py-2">{row.corpus_fund || '-'}</td>
                     <td className="px-3 py-2 text-right font-bold">{row.total_values}</td>
                     <td className="px-3 py-2 text-right">{row.gst}</td>
                     <td className="px-3 py-2 text-right font-black text-brand-900 text-xs text-brand-800">₹{row.grand_total}L</td>
