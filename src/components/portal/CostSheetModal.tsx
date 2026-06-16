@@ -328,7 +328,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
             <MRow label="Other Charges" value={fmt(otherRaw)} />
             {anyOtherRaw > 0 && <MRow label={`${unit.any_other_charges_remarks ? `${unit.any_other_charges_remarks}` : ''}`} value={fmt(anyOtherRaw)} />}
             <MRow label="Total (Before GST)" value={fmt(totalRaw)} bold />
-            <MRow label={`GST ${gstPct}% (As per Govt. Charges)`} value={fmt(gstRaw)} />
+            <MRow label={`GST ${gstPct}% (As per govt. charges)`} value={fmt(gstRaw)} />
             <MRow label="Total Cost" value={fmt(grandRaw)} dark />
           </>
         )}
@@ -468,7 +468,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
                     <td className="px-6 py-4 text-sm whitespace-nowrap">{fmt(totalRaw)}</td>
                   </tr>
                   <tr>
-                    <td className="px-6 py-3 border-r border-brand-100 text-left text-xs font-bold">{`GST ${gstPct}% (AS PER GOVT. CHARGES)`}</td>
+                    <td className="px-6 py-3 border-r border-brand-100 text-left text-xs font-bold">{`GST ${gstPct}% (As per govt. charges)`}</td>
                     <td className="px-6 py-3 font-semibold text-sm whitespace-nowrap">{fmt(gstRaw)}</td>
                   </tr>
                   <tr className="bg-[#102a43] text-white font-bold">
@@ -778,7 +778,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
                           <td style={{ padding: 0 }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px', height: '100%' }}>{fmt(totalRaw).replace(/[^0-9.,]/g, '')}</div></td>
                         </tr>
                         <tr style={{ borderBottom: '1px solid #9ca3af' }}>
-                          <td style={{ padding: 0, borderRight: '1px solid #9ca3af' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '8px', height: '100%' }}>{`GST ${gstPct}% (AS PER GOVT. CHARGES)`}</div></td>
+                          <td style={{ padding: 0, borderRight: '1px solid #9ca3af' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '8px', height: '100%' }}>{`GST ${gstPct}% (As per govt. charges)`}</div></td>
                           <td style={{ padding: 0 }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px', height: '100%' }}>{fmt(gstRaw).replace(/[^0-9.,]/g, '')}</div></td>
                         </tr>
                         <tr style={{ fontWeight: 800, background: '#f3f4f6' }}>
@@ -882,6 +882,7 @@ export default function CostSheetModal({ isOpen, onClose, unit, property }: Cost
               {unit.corpus_fund && <li>Corpus Fund of Rs.{unit.corpus_fund}/- will be payable at the time of handover, and Casagrand will maintain the property for the first 6 months from the date of project handover.</li>}
               {unit.car_park_type && <li>Basic Cost is inclusive of {carParkTCText(unit.car_park_type)}.</li>}
               <li>This price sheet is valid solely on its date of issuance.</li>
+              <li>Registration charges are additional (as per government norms).</li>
               <li>All the above terms &amp; conditions are to be read in continuation of the booking form.</li>
               <li>I/We understand and accept the above Terms &amp; Conditions, price sheet and payment schedule for the unit selected.</li>
             </ul>

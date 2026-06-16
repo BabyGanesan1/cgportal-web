@@ -137,13 +137,15 @@ export default function PropertyDetailForm({
   const watchedValues = watch([
     'this_week_price', 'next_week_price', 'car_park_charges', 'infra_charges', 'other_charges', 'any_other_charges', 'modification',
     'super_builtup_area', 'plc_charges_per_sqft', 'frc_charges_per_sqft', 'private_terrace',
-    'land_rate_lakhs', 'land_area_sqyards', 'land_rate_sqyards', 'land_area_sqft', 'land_rate_sqft'
+    'land_rate_lakhs', 'land_area_sqyards', 'land_rate_sqyards', 'land_area_sqft', 'land_rate_sqft',
+    'gst'
   ]);
 
   const [
     tPrice, nPrice, cpCharges, infra, other, anyOther, mod,
     sba, plc, frc, terrace,
-    landRateLakhs, landAreaYards, landRateYards, landAreaFt, landRateFt
+    landRateLakhs, landAreaYards, landRateYards, landAreaFt, landRateFt,
+    manualGst
   ] = watchedValues.map(v => parseFloat(v as string) || 0);
 
   const calc = useMemo(() => {
@@ -170,17 +172,18 @@ export default function PropertyDetailForm({
     const nInclCP = landValue + nConstValue + nTerraceValue + cpCharges;
 
     const total = inclCP + infra + other + anyOther + mod;
-    const gst = total * 0.05;
-    const grand = total + gst;
+    const gstValue = manualGst > 0 ? manualGst : total * 0.05;
+    const grand = total + gstValue;
 
     return {
       inclCP: inclCP.toFixed(2),
       nInclCP: nInclCP.toFixed(2),
       total: total.toFixed(2),
-      gst: gst.toFixed(2),
+      gst: gstValue.toFixed(6),
       grand: grand.toFixed(2),
+      isManualGst: manualGst > 0,
     };
-  }, [tPrice, nPrice, cpCharges, infra, other, anyOther, mod]);
+  }, [tPrice, nPrice, cpCharges, infra, other, anyOther, mod, manualGst]);
 
   const handleFormSubmit = handleSubmit(async (data) => {
     const cleaned = {
@@ -211,6 +214,7 @@ export default function PropertyDetailForm({
       dld_charges: data.dld_charges ? parseFloat(data.dld_charges) : null,
       admin_fee: data.admin_fee ? parseFloat(data.admin_fee) : null,
       corpus_fund: data.corpus_fund?.trim() || null,
+      gst: data.gst ? parseFloat(data.gst) : null,
     };
     await onSubmit(cleaned);
   });
@@ -290,6 +294,7 @@ export default function PropertyDetailForm({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Input label="Any Other Charges (Remarks)" placeholder="e.g. Special Charges..." {...register('any_other_charges_remarks')} />
           <Input label="Corpus Fund" placeholder="e.g. Rs.50,000/-" {...register('corpus_fund')} />
+          <Input label="GST %" type="number" step="any" placeholder="Auto calculated at 5%" {...register('gst')} />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Input label="PLC Reason" placeholder="Corner Unit" {...register('plc_reason')} />
@@ -312,7 +317,7 @@ export default function PropertyDetailForm({
               },
               { label: 'Next WEEK PRICE INCL CAR PARK', value: calc.nInclCP },
               { label: 'Total Value', value: calc.total },
-              { label: 'GST (5%)', value: calc.gst },
+              { label: calc.isManualGst ? 'GST (Manual)' : 'GST (5% Auto)', value: calc.gst },
               { label: 'Grand Total', value: calc.grand },
               // { label: 'NW Grand', value: (parseFloat(calc.nInclCP) + parseFloat(calc.total) - parseFloat(calc.inclCP) + (parseFloat(calc.nInclCP) + parseFloat(calc.total) - parseFloat(calc.inclCP)) * 0.05).toFixed(2) },
             ].map(item => (
